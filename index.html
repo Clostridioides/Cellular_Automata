@@ -3,42 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Agentenwelt — Lokal: Mutation, Vererbung, Differenzierung</title>
+<title>Agentenwelt — Emergent</title>
 <style>
-  :root { --bg:#08090d; --panel:rgba(14,17,23,0.93); --border:#1e2330;
-    --text:#d8dde8; --muted:#6b7585; --accent:#38e1d6; }
+  :root { --bg:#07080c; --panel:rgba(13,16,22,0.94); --border:#222938;
+    --text:#d9dfec; --muted:#778293; --accent:#38e1d6; --warn:#ff9f45; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
     font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace; font-size:13px; line-height:1.45; }
   canvas#sim { position:fixed; inset:0; display:block; }
   .hud { position:fixed; top:14px; left:16px; z-index:5; pointer-events:none; letter-spacing:.04em;
     text-shadow:0 1px 8px #000,0 0 2px #000; }
-  .hud .title { font-size:15px; font-weight:600; letter-spacing:.12em; }
+  .hud .title { font-size:15px; font-weight:700; letter-spacing:.13em; }
   .hud .readout { color:var(--muted); font-size:12px; margin-top:2px; }
   .hud .readout b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
   .hud .stat { color:var(--muted); font-size:11px; margin-top:1px; font-variant-numeric:tabular-nums; }
   .hud .stat b { color:var(--accent); font-weight:600; }
   .graphs { display:flex; gap:8px; margin-top:7px; }
-  .graphs canvas { display:block; opacity:.92; }
-  .roleLegend { display:flex; gap:12px; align-items:center; margin-top:6px; color:var(--muted); font-size:10.5px; }
-  .roleLegend span { display:inline-flex; align-items:center; gap:5px; }
-  .roleLegend i { width:9px; height:9px; border-radius:50%; display:inline-block; border:1px solid currentColor; box-shadow:0 0 7px currentColor; }
-  .roleLegend .scout { color:#fff2b0; }
-  .roleLegend .support { color:#50c8ff; }
-  .roleLegend .lineage { color:#d7a5ff; background:radial-gradient(circle,#ffffff 0 20%,#d7a5ff 35%,#6cf 100%); }
+  .graphs canvas { display:block; opacity:.92; border:1px solid rgba(255,255,255,.04); border-radius:7px; }
+  .legend-mini { margin-top:7px; color:var(--muted); font-size:10px; max-width:360px; }
+  .sw { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
 
   .toggle { position:fixed; z-index:20; right:16px; top:14px; width:46px; height:46px; border-radius:12px;
     background:var(--panel); border:1px solid var(--border); color:var(--text); font-size:19px; cursor:pointer;
     display:grid; place-items:center; backdrop-filter:blur(8px); }
   .toggle:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 
-  .panel { position:fixed; z-index:15; left:0; right:0; bottom:0; max-height:74vh; overflow-y:auto;
+  .panel { position:fixed; z-index:15; left:0; right:0; bottom:0; max-height:76vh; overflow-y:auto;
     background:var(--panel); backdrop-filter:blur(12px); border-top:1px solid var(--border);
     border-radius:16px 16px 0 0; padding:16px 16px 28px; }
-  @media (prefers-reduced-motion: no-preference) { .panel { transition:transform .28s cubic-bezier(.4,0,.2,1);} }
+  @media (prefers-reduced-motion: no-preference) { .panel { transition:transform .26s cubic-bezier(.4,0,.2,1);} }
   .panel.collapsed { transform:translateY(101%); }
-  @media (min-width:820px) {
-    .panel { left:auto; top:0; bottom:0; right:0; width:372px; max-height:none; border-top:none;
+  @media (min-width:840px) {
+    .panel { left:auto; top:0; bottom:0; right:0; width:390px; max-height:none; border-top:none;
       border-left:1px solid var(--border); border-radius:0; padding:18px 20px 48px; }
     .panel.collapsed { transform:translateX(101%); } .hud { top:16px; }
   }
@@ -48,705 +44,423 @@
   .group > .legend { font-size:11px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted);
     margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:6px; }
   .ctrl { margin-bottom:13px; }
-  .ctrl .row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+  .ctrl .row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; gap:8px; }
   .ctrl label { font-size:12.5px; }
-  .ctrl .val { color:var(--accent); font-variant-numeric:tabular-nums; font-size:12px; }
+  .ctrl .val { color:var(--accent); font-variant-numeric:tabular-nums; font-size:12px; white-space:nowrap; }
   input[type=range] { width:100%; height:22px; margin:0; cursor:pointer; accent-color:var(--accent); background:transparent; }
   .toggle-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; cursor:pointer; }
   .toggle-row input { width:18px; height:18px; accent-color:var(--accent); cursor:pointer; }
   .toggle-row label { font-size:12.5px; cursor:pointer; }
   .btns { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
   .btns .wide { grid-column:1 / -1; }
-  button.act { appearance:none; border:1px solid var(--border); background:#161b24; color:var(--text);
+  button.act { appearance:none; border:1px solid var(--border); background:#151b25; color:var(--text);
     padding:11px 10px; border-radius:10px; cursor:pointer; font:inherit; font-size:12.5px; letter-spacing:.03em; }
-  button.act:hover { border-color:#2c3344; background:#1a212c; }
+  button.act:hover { border-color:#30394b; background:#1a2230; }
   button.act:active { transform:translateY(1px); }
-  button.act:disabled { opacity:.4; cursor:not-allowed; }
-  button.act:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   button.act.primary { border-color:var(--accent); color:var(--accent); }
   button.act.primary:hover { background:rgba(56,225,214,.08); }
-  select.act { width:100%; appearance:none; border:1px solid var(--border); background:#161b24; color:var(--text);
-    padding:10px; border-radius:10px; font:inherit; font-size:12.5px; margin-bottom:10px; cursor:pointer; }
-  .info { color:var(--muted); font-size:11px; margin:8px 0 0; min-height:15px; }
-  .info b { color:var(--accent); }
+  button.act.warn { border-color:#6b4b26; color:#ffbd73; }
   .note { color:var(--muted); font-size:11px; margin:-4px 0 12px; }
-  .matrix { display:grid; gap:3px; user-select:none; margin-top:4px; }
-  .mcell { aspect-ratio:1; border-radius:4px; cursor:pointer; border:1px solid rgba(255,255,255,.04); }
-  .mcell.head { cursor:default; border:none; display:grid; place-items:center; }
-  .swatch { width:62%; height:62%; border-radius:50%; box-shadow:0 0 6px currentColor; }
-  .legend-bar { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11px; color:var(--muted); }
-  .legend-bar .scale { flex:1; height:8px; border-radius:4px; background:linear-gradient(90deg,#2b6cff,#14171f 50%,#a0e04a); }
+  .genegrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px; }
+  .genechip { border:1px solid var(--border); background:#111721; border-radius:9px; padding:7px 5px; font-size:10px; color:var(--muted); text-align:center; }
+  .genechip b { display:block; color:var(--text); font-size:11px; margin-bottom:2px; }
 </style>
 </head>
 <body>
   <canvas id="sim"></canvas>
 
   <div class="hud">
-    <div class="title">AGENTENWELT · LOKAL</div>
-    <div class="readout"><b id="rPop">0</b> Zellen · <b id="rFood">0</b> Nahrung · <b id="rFps">0</b> fps</div>
-    <div class="stat">Diversität <b id="rDiv">–</b> · Komplexität <b id="rCx">–</b></div>
-    <div class="stat">Körper <b id="rBodies">0</b> (max <b id="rMax">0</b>, gemischt <b id="rMix">0</b>%) · Gen <b id="rGen">0</b> · Mut ⌀<b id="rMut">1.0</b></div>
-    <div class="stat">Umwelt <b id="rEnv">–</b> · Polarität <b id="rPol">–</b> · Low-Mut <b id="rLowMut">–</b>%</div>
-    <div class="roleLegend"><span><i class="scout"></i>Such-/Frontzelle</span><span><i class="support"></i>Haft-/Stützzelle</span><span><i class="lineage"></i>Abstammungslinie</span></div>
+    <div class="title">AGENTENWELT · EMERGENT</div>
+    <div class="readout"><b id="rPop">0</b> Teilchen · <b id="rFps">0</b> fps · Gen <b id="rGen">0</b></div>
+    <div class="stat">Diversität <b id="rDiv">–</b> · Dichte ⌀<b id="rDen">–</b> · Geburten <b id="rBorn">0</b> · Tode <b id="rDead">0</b></div>
+    <div class="stat">g0 <b id="rG0">–</b> · g1 <b id="rG1">–</b> · g2 <b id="rG2">–</b> · g3 <b id="rG3">–</b></div>
     <div class="graphs">
-      <canvas id="spark" width="150" height="40"></canvas>
-      <canvas id="graph2" width="150" height="40"></canvas>
+      <canvas id="spark" width="160" height="42"></canvas>
+      <canvas id="graph2" width="160" height="42"></canvas>
+    </div>
+    <div class="legend-mini">
+      <span class="sw" style="background:hsl(180,85%,55%)"></span>Farbe = Genomwinkel ·
+      <span class="sw" style="background:hsl(35,85%,57%)"></span>Helligkeit/Sättigung = Ausprägung · keine festen Typen
     </div>
   </div>
 
   <button class="toggle" id="toggle" aria-label="Steuerung ein-/ausblenden">⚙</button>
 
   <aside class="panel" id="panel">
-    <h1>Agentenwelt · Lokal</h1>
-    <p class="sub">Reduzierte Version: Mutation, Vererbung, kleine lokale Graph-Körper und Polarisation. Globale Meta-Organismen sind entfernt.</p>
+    <h1>Agentenwelt · Emergent</h1>
+    <p class="sub">Semantikarmes System: kontinuierliches Vier-Zahlen-Genom, lokale Beziehungskräfte, Alignment, dichteabhängige Replikation und Überfüllungstod.</p>
 
-    <div class="group" style="display:none">
-      <div class="legend">Analyse-Labor</div>
-      <p class="note">Headless-Suche über Stoffwechsel × Größenstrafe × Tag-Toleranz. Lädt das beste Regime, danach „Verfeinern" für die lokale Feinsuche.</p>
-      <select class="act" id="objSel">
-        <option value="complexity">Ziel: Komplexität maximieren</option>
-        <option value="diversity">Ziel: Diversität maximieren</option>
-        <option value="stability">Ziel: Stabilität maximieren</option>
-      </select>
-      <div class="btns">
-        <button class="act primary" id="bGrid">Grid-Suche (27)</button>
-        <button class="act" id="bRefine">Verfeinern</button>
+    <div class="group">
+      <div class="legend">Vier-Zahlen-Genom</div>
+      <p class="note">Keine Zelltypen. Das Genom bestimmt nur Beziehung und Dichtenische; beobachtbare Strategien entstehen aus Selektion.</p>
+      <div class="genegrid">
+        <div class="genechip"><b>g0</b>ähnlich<br>anziehen/meiden</div>
+        <div class="genechip"><b>g1</b>fremd<br>anziehen/meiden</div>
+        <div class="genechip"><b>g2</b>mitfließen<br>Alignment</div>
+        <div class="genechip"><b>g3</b>Dichte<br>Nische</div>
       </div>
-      <p class="info" id="searchInfo"></p>
-      <p class="info" id="searchRes"></p>
     </div>
 
     <div class="group">
       <div class="legend">Welt</div>
       <div class="btns">
-        <button class="act" id="bRandom">🎲 Matrix würfeln</button>
-        <button class="act" id="bReset">Neu starten</button>
+        <button class="act primary" id="bReset">Neu starten</button>
         <button class="act" id="bPause">Pause</button>
+        <button class="act warn wide" id="bChaos">🧬 Alle Parameter randomisieren</button>
       </div>
     </div>
 
     <div class="group">
-      <div class="legend">Adhäsion &amp; Größe</div>
-      <p class="note">Tag-Toleranz: wie ähnlich zwei Zellen sein müssen, um zu binden. Größenstrafe bremst große Körper → Selektionsdruck.</p>
-      <div class="toggle-row"><input type="checkbox" id="cBond"><label for="cBond">Bindung erlauben</label></div>
-      <div class="ctrl"><div class="row"><label for="sTagTol">Tag-Toleranz</label><span class="val" id="vTagTol"></span></div>
-        <input type="range" id="sTagTol" min="0.02" max="0.40" step="0.01"></div>
-      <div class="ctrl"><div class="row"><label for="sSize">Größenstrafe (Tempo)</label><span class="val" id="vSize"></span></div>
-        <input type="range" id="sSize" min="0" max="0.20" step="0.01"></div>
-      <div class="ctrl"><div class="row"><label for="sBondCost">Bindungskosten</label><span class="val" id="vBondCost"></span></div>
-        <input type="range" id="sBondCost" min="0" max="0.02" step="0.001"></div>
-      <div class="ctrl"><div class="row"><label for="sFood">Futtersuche (Chemotaxis)</label><span class="val" id="vFood"></span></div>
-        <input type="range" id="sFood" min="0" max="2" step="0.1"></div>
-    </div>
-
-    <div class="group">
-      <div class="legend">Bindung (Federn)</div>
-      <div class="ctrl"><div class="row"><label for="sSpring">Bindungskraft</label><span class="val" id="vSpring"></span></div>
-        <input type="range" id="sSpring" min="0" max="0.12" step="0.005"></div>
-      <div class="ctrl"><div class="row"><label for="sShare">Energie teilen</label><span class="val" id="vShare"></span></div>
-        <input type="range" id="sShare" min="0" max="0.25" step="0.01"></div>
-      <div class="ctrl"><div class="row"><label for="sMaxB">Max. Bindungen</label><span class="val" id="vMaxB"></span></div>
-        <input type="range" id="sMaxB" min="0" max="10" step="1"></div>
-      <div class="toggle-row"><input type="checkbox" id="cBondLines"><label for="cBondLines">Bindungen zeichnen</label></div>
-    </div>
-
-    <div class="group">
-      <div class="legend">Lokale Differenzierung</div>
-      <p class="note">Kleine Graph-Körper bleiben lokal: keine Meta-Organismen. Verbundene Zellen polarisieren entlang ihrer Bewegungsachse: vorne eher Such-/Motorzelle, hinten eher Haft-/Stützzelle.</p>
-      <div class="toggle-row"><input type="checkbox" id="cDiff"><label for="cDiff">Polarisation erlauben</label></div>
-      <div class="toggle-row"><input type="checkbox" id="cRoleViz"><label for="cRoleViz">Rollen markieren (Farbton/Ring)</label></div>
-      <div class="toggle-row"><input type="checkbox" id="cLineViz"><label for="cLineViz">Abstammungslinie markieren</label></div>
-      <div class="ctrl"><div class="row"><label for="sLineMix">Linien-Farbmischung</label><span class="val" id="vLineMix"></span></div>
-        <input type="range" id="sLineMix" min="0" max="0.7" step="0.05"></div>
-      <div class="ctrl"><div class="row"><label for="sLineDrift">Linien-Drift</label><span class="val" id="vLineDrift"></span></div>
-        <input type="range" id="sLineDrift" min="0" max="0.08" step="0.005"></div>
-      <div class="ctrl"><div class="row"><label for="sMaxBody">Max. Graph-Knoten</label><span class="val" id="vMaxBody"></span></div>
-        <input type="range" id="sMaxBody" min="2" max="8" step="1"></div>
-      <div class="ctrl"><div class="row"><label for="sPolarity">Polarisations-Stärke</label><span class="val" id="vPolarity"></span></div>
-        <input type="range" id="sPolarity" min="0" max="2" step="0.1"></div>
-    </div>
-
-    <div class="group">
-      <div class="legend">Mehr-Arten-Verhalten</div>
-      <div class="toggle-row"><input type="checkbox" id="cQuorum"><label for="cQuorum">Stärke in Zahlen</label></div>
-      <div class="ctrl"><div class="row"><label for="sMorale">Moral-Einfluss</label><span class="val" id="vMorale"></span></div>
-        <input type="range" id="sMorale" min="0" max="2" step="0.1"></div>
-    </div>
-
-    <div class="group">
-      <div class="legend">Leben &amp; Energie</div>
-      <div class="ctrl"><div class="row"><label for="sFoodMax">Nahrung (max)</label><span class="val" id="vFoodMax"></span></div>
-        <input type="range" id="sFoodMax" min="100" max="4000" step="50"></div>
-      <div class="ctrl"><div class="row"><label for="sFoodRate">Nahrungs-Wachstum</label><span class="val" id="vFoodRate"></span></div>
-        <input type="range" id="sFoodRate" min="0" max="800" step="10"></div>
-      <div class="ctrl"><div class="row"><label for="sFoodE">Nahrungs-Energie</label><span class="val" id="vFoodE"></span></div>
-        <input type="range" id="sFoodE" min="10" max="80" step="2"></div>
-      <div class="ctrl"><div class="row"><label for="sMeta">Stoffwechsel</label><span class="val" id="vMeta"></span></div>
-        <input type="range" id="sMeta" min="0.02" max="0.30" step="0.01"></div>
-    </div>
-
-    <div class="group">
-      <div class="legend">Stabilität &amp; Umwelt</div>
-      <p class="note">Langsame Umwelt-Drift hält Anpassung in Bewegung; die Reserve verhindert vollständiges Auslaufen.</p>
-      <div class="ctrl"><div class="row"><label for="sEnvDrift">Umwelt-Drift</label><span class="val" id="vEnvDrift"></span></div>
-        <input type="range" id="sEnvDrift" min="0" max="1.5" step="0.05"></div>
-      <div class="ctrl"><div class="row"><label for="sEnvPressure">Umweltdruck</label><span class="val" id="vEnvPressure"></span></div>
-        <input type="range" id="sEnvPressure" min="0" max="0.12" step="0.005"></div>
-      <div class="toggle-row"><input type="checkbox" id="cRescue"><label for="cRescue">Keimzellen-Reserve</label></div>
+      <div class="legend">Population</div>
+      <div class="ctrl"><div class="row"><label for="sStartN">Start-Anzahl</label><span class="val" id="vStartN"></span></div>
+        <input type="range" id="sStartN" min="400" max="8000" step="100"></div>
+      <div class="ctrl"><div class="row"><label for="sPopCap">Populationsdeckel</label><span class="val" id="vPopCap"></span></div>
+        <input type="range" id="sPopCap" min="1000" max="12000" step="250"></div>
+      <div class="toggle-row"><input type="checkbox" id="cReserve"><label for="cReserve">Keim-Reserve gegen Auslaufen</label></div>
       <div class="ctrl"><div class="row"><label for="sMinPop">Reserve-Minimum</label><span class="val" id="vMinPop"></span></div>
-        <input type="range" id="sMinPop" min="0" max="500" step="10"></div>
+        <input type="range" id="sMinPop" min="0" max="2500" step="50"></div>
     </div>
 
     <div class="group">
-      <div class="legend">Mutation (pro Gen)</div>
-      <p class="note">Jedes Gen mutiert eigenständig. Hohe <b>Tag</b>-Mutation löst Körper auf (Kinder fallen aus der Toleranz) — niedrige hält sie kohärent.</p>
-      <div class="ctrl"><div class="row"><label for="sMutTag">Tag-Mutation</label><span class="val" id="vMutTag"></span></div>
-        <input type="range" id="sMutTag" min="0" max="0.20" step="0.005"></div>
-      <div class="ctrl"><div class="row"><label for="sMutPerc">Sicht-Mutation</label><span class="val" id="vMutPerc"></span></div>
-        <input type="range" id="sMutPerc" min="0" max="0.30" step="0.01"></div>
-      <div class="ctrl"><div class="row"><label for="sMutSpd">Tempo-Mutation</label><span class="val" id="vMutSpd"></span></div>
-        <input type="range" id="sMutSpd" min="0" max="0.30" step="0.01"></div>
-      <div class="ctrl"><div class="row"><label for="sMutBias">Rollen-Mutation</label><span class="val" id="vMutBias"></span></div>
-        <input type="range" id="sMutBias" min="0" max="0.30" step="0.01"></div>
-      <div class="ctrl"><div class="row"><label for="sMutAdapt">Umwelt-Mutation</label><span class="val" id="vMutAdapt"></span></div>
-        <input type="range" id="sMutAdapt" min="0" max="0.30" step="0.01"></div>
-      <div class="ctrl"><div class="row"><label for="sMutFloor">Mutations-Untergrenze</label><span class="val" id="vMutFloor"></span></div>
-        <input type="range" id="sMutFloor" min="0" max="1.5" step="0.05"></div>
-      <div class="toggle-row"><input type="checkbox" id="cEvoMut"><label for="cEvoMut">Mutationsrate vererbbar (Evolvierbarkeit)</label></div>
-      <div class="ctrl"><div class="row"><label for="sMutMeta">Meta-Mutation</label><span class="val" id="vMutMeta"></span></div>
-        <input type="range" id="sMutMeta" min="0" max="0.40" step="0.02"></div>
+      <div class="legend">Lokale Kräfte</div>
+      <div class="ctrl"><div class="row"><label for="sRadius">Interaktionsradius</label><span class="val" id="vRadius"></span></div>
+        <input type="range" id="sRadius" min="16" max="90" step="2"></div>
+      <div class="ctrl"><div class="row"><label for="sForce">Beziehungskraft</label><span class="val" id="vForce"></span></div>
+        <input type="range" id="sForce" min="0" max="0.16" step="0.005"></div>
+      <div class="ctrl"><div class="row"><label for="sCore">Kern-Abstoßung</label><span class="val" id="vCore"></span></div>
+        <input type="range" id="sCore" min="0" max="4" step="0.1"></div>
+      <div class="ctrl"><div class="row"><label for="sAlign">Alignment-Skalierung</label><span class="val" id="vAlign"></span></div>
+        <input type="range" id="sAlign" min="0" max="0.12" step="0.005"></div>
+      <div class="ctrl"><div class="row"><label for="sNoise">Bewegungsrauschen</label><span class="val" id="vNoise"></span></div>
+        <input type="range" id="sNoise" min="0" max="0.05" step="0.002"></div>
+      <div class="ctrl"><div class="row"><label for="sSpeed">Max. Tempo</label><span class="val" id="vSpeed"></span></div>
+        <input type="range" id="sSpeed" min="0.4" max="4" step="0.1"></div>
     </div>
 
     <div class="group">
-      <div class="legend">Population &amp; Gene</div>
-      <div class="ctrl"><div class="row"><label for="sWorld">Weltgröße (Zoom)</label><span class="val" id="vWorld"></span></div>
+      <div class="legend">Replikation & Tod</div>
+      <p class="note">Replikation bevorzugt mittlere lokale Dichte. Überfüllung tötet. Kein Energie- oder Zelltyp-System.</p>
+      <div class="ctrl"><div class="row"><label for="sRepro">Replikationsrate</label><span class="val" id="vRepro"></span></div>
+        <input type="range" id="sRepro" min="0" max="2.5" step="0.05"></div>
+      <div class="ctrl"><div class="row"><label for="sDensityWidth">Dichte-Fenster</label><span class="val" id="vDensityWidth"></span></div>
+        <input type="range" id="sDensityWidth" min="1" max="12" step="0.5"></div>
+      <div class="ctrl"><div class="row"><label for="sCrowdDeath">Überfüllungstod</label><span class="val" id="vCrowdDeath"></span></div>
+        <input type="range" id="sCrowdDeath" min="0" max="2" step="0.05"></div>
+      <div class="ctrl"><div class="row"><label for="sBaseDeath">Grundsterben</label><span class="val" id="vBaseDeath"></span></div>
+        <input type="range" id="sBaseDeath" min="0" max="0.08" step="0.002"></div>
+    </div>
+
+    <div class="group">
+      <div class="legend">Vererbung</div>
+      <div class="ctrl"><div class="row"><label for="sMutation">Mutation</label><span class="val" id="vMutation"></span></div>
+        <input type="range" id="sMutation" min="0" max="0.16" step="0.002"></div>
+      <div class="ctrl"><div class="row"><label for="sInnovation">Innovation</label><span class="val" id="vInnovation"></span></div>
+        <input type="range" id="sInnovation" min="0" max="0.04" step="0.001"></div>
+      <div class="ctrl"><div class="row"><label for="sMinMutation">Mutations-Untergrenze</label><span class="val" id="vMinMutation"></span></div>
+        <input type="range" id="sMinMutation" min="0" max="0.04" step="0.001"></div>
+    </div>
+
+    <div class="group">
+      <div class="legend">Anzeige</div>
+      <div class="ctrl"><div class="row"><label for="sWorld">Weltgröße / Zoom</label><span class="val" id="vWorld"></span></div>
         <input type="range" id="sWorld" min="1" max="3" step="0.1"></div>
-      <div class="ctrl"><div class="row"><label for="sAgents">Start-Anzahl</label><span class="val" id="vAgents"></span></div>
-        <input type="range" id="sAgents" min="100" max="3000" step="50"></div>
-      <div class="ctrl"><div class="row"><label for="sSpecies">Arten</label><span class="val" id="vSpecies"></span></div>
-        <input type="range" id="sSpecies" min="2" max="12" step="1"></div>
-      <div class="ctrl"><div class="row"><label for="sPerc">Max Sichtweite</label><span class="val" id="vPerc"></span></div>
-        <input type="range" id="sPerc" min="20" max="120" step="2"></div>
-      <div class="ctrl"><div class="row"><label for="sSpeed">Max Tempo</label><span class="val" id="vSpeed"></span></div>
-        <input type="range" id="sSpeed" min="0.5" max="4" step="0.1"></div>
-      <div class="ctrl"><div class="row"><label for="sSep">Mindestabstand</label><span class="val" id="vSep"></span></div>
-        <input type="range" id="sSep" min="8" max="40" step="1"></div>
-    </div>
-
-    <div class="group">
-      <div class="legend">Verhaltensgewichte</div>
-      <div class="ctrl"><div class="row"><label for="wSep">Abstand halten</label><span class="val" id="vwSep"></span></div>
-        <input type="range" id="wSep" min="0" max="3" step="0.1"></div>
-      <div class="ctrl"><div class="row"><label for="wAli">Ausrichten</label><span class="val" id="vwAli"></span></div>
-        <input type="range" id="wAli" min="0" max="3" step="0.1"></div>
-      <div class="ctrl"><div class="row"><label for="wCoh">Zusammenhalt</label><span class="val" id="vwCoh"></span></div>
-        <input type="range" id="wCoh" min="0" max="3" step="0.1"></div>
-      <div class="ctrl"><div class="row"><label for="wInt">Arten-Interaktion</label><span class="val" id="vwInt"></span></div>
-        <input type="range" id="wInt" min="0" max="3" step="0.1"></div>
       <div class="ctrl"><div class="row"><label for="sTrail">Spur-Länge</label><span class="val" id="vTrail"></span></div>
-        <input type="range" id="sTrail" min="0" max="1" step="0.02"></div>
-    </div>
-
-    <div class="group">
-      <div class="legend">Kampf-Matrix · tippen zum Ändern</div>
-      <div class="matrix" id="matrix"></div>
-      <div class="legend-bar"><span>abstoßen</span><span class="scale"></span><span>anziehen</span></div>
+        <input type="range" id="sTrail" min="0" max="0.96" step="0.02"></div>
+      <div class="ctrl"><div class="row"><label for="sPoint">Punktgröße</label><span class="val" id="vPoint"></span></div>
+        <input type="range" id="sPoint" min="0.6" max="4" step="0.1"></div>
+      <div class="toggle-row"><input type="checkbox" id="cLinks"><label for="cLinks">Beziehungs-Linien anzeigen</label></div>
+      <div class="toggle-row"><input type="checkbox" id="cGenome"><label for="cGenome">Genomfarben anzeigen</label></div>
     </div>
   </aside>
 
 <script>
 /* ===================================================================
-   AGENTENWELT — STUFE 1: von Einzelzellen zu (auch artübergreifenden)
-   Körpern, plus ein Analyse-Labor (Grid-Suche + Verfeinern).
-
-   ZENTRALE NEUE IDEE — VERERBTES ADHÄSIONS-TAG:
-   Jede Zelle hat ein vererbtes, mutierendes Merkmal tag in [0,1].
-   Zwei Zellen binden, wenn |tag_i - tag_j| < Toleranz — UNABHÄNGIG von
-   der Kampf-Matrix. Verwandte teilen Tags (Kin-Körper); verschiedene
-   Arten verschmelzen, wenn ihre Tags überlappen (multispezies-Körper).
-   Multizellularität ist nicht einprogrammiert — sie evolviert.
-
-   SELEKTIONSDRUCK: Größe -> Tempo (große Körper werden träge) + kleine
-   Bindungskosten. Wachstum durch Zellteilung (Kind dockt an); Zerfall &
-   Organismus-Fortpflanzung entstehen emergent durch Stress/Hunger.
+   AGENTENWELT — EMERGENT
+   Tausende Partikel, vier kontinuierliche Genomzahlen, lokale Kräfte,
+   dichteabhängige Replikation. Keine Rollen, keine Artenmatrix, kein
+   Energiehaushalt. Bedeutung entsteht nur aus beobachteten Dynamiken.
    =================================================================== */
 
-const SPECIES_COLORS = ['#38e1d6','#ff5d9e','#c7f04a','#ff9f45','#9d7bff','#5da9ff',
-                        '#ff6b6b','#4ade80','#f0abfc','#fbbf24','#22d3ee','#a3e635'];
-const SPECIES_RGB = SPECIES_COLORS.map(hexToRgb);
+const canvas=document.getElementById('sim'), ctx=canvas.getContext('2d');
+const spark=document.getElementById('spark'), sctx=spark.getContext('2d');
+const g2canvas=document.getElementById('graph2'), g2ctx=g2canvas.getContext('2d');
 
-const POP_CAP=3000, MAX_ENERGY=130, REPRO_AT=110, START_ENERGY=60, EAT_RADIUS=7;
+const TAU=Math.PI*2;
+const TARGET_FPS=60, STEP_DT=1/TARGET_FPS, MAX_CATCHUP=4;
 
-const cfg = {
-  numAgents:1000, numSpecies:6, worldScale:1.5,
-  perception:64, separation:22, maxSpeed:2.2, maxForce:0.06,
-  wSep:1.6, wAli:0.8, wCoh:0.5, wInt:0.8, wFood:0.7, trailLen:0.62,
-  foodMax:1600, foodRate:330, foodEnergy:40, metabolism:0.085,
-  // Mutation: Gene bleiben einfach; mr ist vererbbar, aber durch mutFloor gegen Stillstand begrenzt.
-  mutPerc:0.08, mutSpd:0.08, mutTag:0.04, mutBias:0.08, mutAdapt:0.06,
-  evolvableMut:true, mutMeta:0.10, mutFloor:0.35,
-  bonding:true, springK:0.05, shareRate:0.08, maxBonds:3, maxBodySize:4, bondLines:true,
-  tagTol:0.12, sizePenalty:0.055, bondCost:0.0035,
-  differentiation:true, polarityGain:1.0, roleViz:true, lineViz:true, lineMix:0.35, lineDrift:0.018,
-  envDrift:0.35, envPressure:0.040,
-  rescue:true, minPop:160,
-  quorum:true, moraleGain:0.7,
+const cfg={
+  startN:3000, popCap:6500, minPop:600, reserve:true,
+  worldScale:1.6, radius:44, maxSpeed:2.0, force:0.055, coreRepel:1.8,
+  alignScale:0.035, noise:0.008, drag:0.988,
+  reproRate:0.55, densityWidth:4.0, crowdDeath:0.65, baseDeath:0.008,
+  mutation:0.035, innovation:0.004, minMutation:0.006,
+  trailLen:0.68, pointSize:1.8, links:false, genomeColors:true,
 };
 
-let matrix=[], agents=[], food=[];
-let W=0,H=0,DPR=1,paused=false,nextId=0,searching=false,simTime=0;
+let W=0,H=0,DPR=1,particles=[],nextId=0,paused=false;
+let grid=[],cols=1,rows=1,cellSize=48;
+let popHist=[],divHist=[],birthHist=[];
+let birthsTotal=0,deathsTotal=0,frameBirths=0,frameDeaths=0;
+let accumulator=0,lastFrame=performance.now(),fpsAcc=0,fpsN=0;
+let lastMetrics={div:0,den:0,g0:0,g1:0,g2:0,g3:0,gen:0};
 
-const canvas=document.getElementById('sim'), ctx=canvas.getContext('2d');
-
-/* ---------- Hilfen ---------- */
-function hexToRgb(h){ const n=parseInt(h.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
-function mixRgb(a,b,t){ t=clamp(t,0,1); return [(a[0]+(b[0]-a[0])*t)|0,(a[1]+(b[1]-a[1])*t)|0,(a[2]+(b[2]-a[2])*t)|0]; }
-function rgbToHsl(rgb){
-  let r=rgb[0]/255,g=rgb[1]/255,b=rgb[2]/255;
-  const max=Math.max(r,g,b), min=Math.min(r,g,b); let h=0,s=0,l=(max+min)/2;
-  if(max!==min){ const d=max-min; s=l>0.5?d/(2-max-min):d/(max+min);
-    if(max===r) h=(g-b)/d+(g<b?6:0); else if(max===g) h=(b-r)/d+2; else h=(r-g)/d+4; h/=6; }
-  return [h,s,l];
-}
-function hslToRgb(h,s,l){
-  h=((h%1)+1)%1; const hue=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
-  let r,g,b; if(s===0){ r=g=b=l; } else { const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q; r=hue(p,q,h+1/3); g=hue(p,q,h); b=hue(p,q,h-1/3); }
-  return [(r*255)|0,(g*255)|0,(b*255)|0];
-}
-function circularHueMix(h1,h2,t){ let d=((h2-h1+1.5)%1)-0.5; return (h1+d*clamp(t,0,1)+1)%1; }
-function lineageRgb(a){ return hslToRgb(a.lineHue||0,0.78,0.60); }
-function hueBlendRgb(base,lineHue,t){
-  if(t<=0) return base;
-  const hsl=rgbToHsl(base);
-  const h=circularHueMix(hsl[0],lineHue,t);
-  const sat=clamp(Math.max(hsl[1],0.56)+0.16*t,0.45,0.88);
-  const lum=clamp(hsl[2]*(1-t)+0.58*t,0.34,0.70);
-  return hslToRgb(h,sat,lum);
-}
-function baseLineHue(species){ const h=rgbToHsl(SPECIES_RGB[species%SPECIES_RGB.length])[0]; return (h + rand(-0.055,0.055) + 1)%1; }
 function rand(a,b){ return a+Math.random()*(b-a); }
 function clamp(v,lo,hi){ return v<lo?lo:(v>hi?hi:v); }
-function yieldUI(){ return new Promise(r=>setTimeout(r,0)); }
-function envTarget(){ return 0.5 + 0.48*Math.sin(simTime*0.018*cfg.envDrift); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function wrapDelta(d,size){ if(d>size*0.5) return d-size; if(d<-size*0.5) return d+size; return d; }
+function gauss(){ let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v); }
+function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+function mixHue(h1,h2,t){ const d=((h2-h1+540)%360)-180; return (h1+d*t+360)%360; }
 
-/* ---------- Matrix ---------- */
-function defaultMatrix(n){ const m=[];
-  for(let i=0;i<n;i++){ m[i]=[];
-    for(let j=0;j<n;j++){
-      if(i===j) m[i][j]=0.3;
-      else if(j===(i+1)%n) m[i][j]=0.7;
-      else if(j===(i-1+n)%n) m[i][j]=-0.6;
-      else m[i][j]=rand(-0.3,0.3);
-    } } return m;
+function randomGenome(){
+  return [rand(-1,1), rand(-1,1), Math.random(), Math.random()];
 }
-function randomizeMatrix(){ const n=cfg.numSpecies; matrix=[];
-  for(let i=0;i<n;i++){ matrix[i]=[]; for(let j=0;j<n;j++) matrix[i][j]=Math.round(rand(-1,1)*4)/4; } renderMatrix(); }
-function resizeMatrix(n){ const old=matrix,m=[];
-  for(let i=0;i<n;i++){ m[i]=[]; for(let j=0;j<n;j++) m[i][j]=(old[i]&&old[i][j]!==undefined)?old[i][j]:rand(-0.5,0.5);} matrix=m; renderMatrix(); }
-
-/* ---------- Zellen (Gene: tag, perc, spd, mr=Mutationsrate) ---------- */
-function newAgent(){
-  const a=rand(0,Math.PI*2);
-  const perc=clamp(cfg.perception*rand(0.55,1.0),6,cfg.perception);
-  const spd =clamp(cfg.maxSpeed *rand(0.55,1.0),0.3,cfg.maxSpeed);
-  const species=(Math.random()*cfg.numSpecies)|0;
-  return { id:nextId++, x:Math.random()*W, y:Math.random()*H,
-    vx:Math.cos(a)*spd, vy:Math.sin(a)*spd, s:species,
-    perc, spd, tag:Math.random(), bias:rand(-1,1), adapt:Math.random(),
-    lineHue:baseLineHue(species),
-    mr:rand(Math.max(cfg.mutFloor,0.35),1.4),
-    energy:START_ENERGY, gen:0, ax:0, ay:0, bonds:[], bodySize:1,
-    role:0, effSpd:spd, effPerc:perc, effMeta:1, effSpring:1, effShare:1, _v:0 };
+function cloneGenome(g){ return [g[0],g[1],g[2],g[3]]; }
+function mutateGenome(g, scale){
+  const s=Math.max(cfg.minMutation,scale);
+  if(Math.random()<cfg.innovation){ return randomGenome(); }
+  g[0]=clamp(g[0]+gauss()*s,-1,1);
+  g[1]=clamp(g[1]+gauss()*s,-1,1);
+  g[2]=clamp(g[2]+gauss()*s*0.7,0,1);
+  g[3]=clamp(g[3]+gauss()*s*0.7,0,1);
+  return g;
+}
+function genomeDistance(a,b){
+  const d0=(a[0]-b[0])*0.5, d1=(a[1]-b[1])*0.5, d2=a[2]-b[2], d3=a[3]-b[3];
+  return clamp(Math.sqrt((d0*d0+d1*d1+d2*d2+d3*d3)/4)*1.8,0,1);
+}
+function genomeColor(g, alpha=1){
+  const h=(Math.atan2(g[1],g[0])*180/Math.PI+360)%360;
+  const sat=cfg.genomeColors?Math.round(64+26*Math.abs(g[0]-g[1])*0.5):70;
+  const light=Math.round(42+22*g[2]+8*g[3]);
+  return `hsla(${h.toFixed(0)},${sat}%,${light}%,${alpha})`;
+}
+function makeParticle(x=Math.random()*W,y=Math.random()*H,g=randomGenome(),gen=0){
+  const a=rand(0,TAU), sp=rand(0.1,cfg.maxSpeed);
+  return { id:nextId++, x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, g, gen,
+    age:rand(0,5), den:0, target:0, rel:0, hue:0, ax:0, ay:0 };
 }
 function makeChild(p){
-  // mr skaliert ALLE Mutationen; mutFloor verhindert evolutionären Stillstand bei mr -> 0.
-  const mr=cfg.evolvableMut?Math.max(p.mr,cfg.mutFloor):1;
-  const perc=clamp(p.perc*(1+rand(-1,1)*cfg.mutPerc*mr),6,cfg.perception);
-  const spd =clamp(p.spd *(1+rand(-1,1)*cfg.mutSpd *mr),0.3,cfg.maxSpeed);
-  const tag =clamp(p.tag + rand(-1,1)*cfg.mutTag*mr,0,1);
-  const bias=clamp(p.bias + rand(-1,1)*cfg.mutBias*mr,-1,1);
-  const adapt=clamp(p.adapt + rand(-1,1)*cfg.mutAdapt*mr,0,1);
-  const lineHue=(p.lineHue + rand(-1,1)*cfg.lineDrift*mr + 1)%1;
-  const cmr =cfg.evolvableMut?clamp(p.mr*(1+rand(-1,1)*cfg.mutMeta),cfg.mutFloor,4):p.mr;
-  const a=rand(0,Math.PI*2);
-  return { id:nextId++, x:p.x+rand(-3,3), y:p.y+rand(-3,3),
-    vx:Math.cos(a)*spd*0.4, vy:Math.sin(a)*spd*0.4, s:p.s,
-    perc, spd, tag, bias, adapt, lineHue, mr:cmr, energy:p.energy, gen:p.gen+1,
-    ax:0, ay:0, bonds:[], bodySize:1, role:0, effSpd:spd, effPerc:perc,
-    effMeta:1, effSpring:1, effShare:1, _v:0 };
+  const g=mutateGenome(cloneGenome(p.g),cfg.mutation);
+  const a=rand(0,TAU), r=rand(1,5);
+  const c=makeParticle((p.x+Math.cos(a)*r+W)%W,(p.y+Math.sin(a)*r+H)%H,g,p.gen+1);
+  c.vx=p.vx*0.65+Math.cos(a)*0.25; c.vy=p.vy*0.65+Math.sin(a)*0.25;
+  c.age=0;
+  return c;
 }
-function spawnAgents(n){ agents=[]; for(let i=0;i<n;i++) agents.push(newAgent()); }
-function removeBond(x,y){ const b=x.bonds; for(let i=0;i<b.length;i++) if(b[i].o===y){ b.splice(i,1); return; } }
-function detachAll(a){ for(const e of a.bonds) removeBond(e.o,a); a.bonds.length=0; }
-function bonded(a,b){ for(const e of a.bonds) if(e.o===b) return true; return false; }
-function setAgentCount(n){
-  if(n<agents.length){ for(let i=n;i<agents.length;i++) detachAll(agents[i]); agents.length=n; }
-  else while(agents.length<n) agents.push(newAgent());
+function seedRandom(n){
+  for(let i=0;i<n && particles.length<cfg.popCap;i++) particles.push(makeParticle());
 }
-function setSpeciesCount(n){ cfg.numSpecies=n; resizeMatrix(n);
-  for(const a of agents){ if(a.s>=n) a.s=(Math.random()*n)|0; a.bonds.length=0; } }
+function reset(){
+  particles=[]; nextId=0; birthsTotal=0; deathsTotal=0; frameBirths=0; frameDeaths=0;
+  popHist=[]; divHist=[]; birthHist=[];
+  seedRandom(cfg.startN);
+  ctx.setTransform(DPR/cfg.worldScale,0,0,DPR/cfg.worldScale,0,0);
+  ctx.fillStyle='#07080c'; ctx.fillRect(0,0,W,H);
+}
 
-/* ---------- Nahrung ---------- */
-function spawnFood(n){ for(let i=0;i<n&&food.length<cfg.foodMax;i++) food.push({x:Math.random()*W,y:Math.random()*H,dead:false}); }
-function resetFood(){ food=[]; foodAcc=0; spawnFood(cfg.foodMax); }
-let foodAcc=0;
-function regrowFood(){ foodAcc+=cfg.foodRate/60; let add=Math.floor(foodAcc); foodAcc-=add; if(add>0) spawnFood(add); }
-function compactFood(){ let w=0; for(let i=0;i<food.length;i++) if(!food[i].dead) food[w++]=food[i]; food.length=w; }
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const VW=window.innerWidth,VH=window.innerHeight;
+  const oldW=W,oldH=H;
+  W=VW*cfg.worldScale; H=VH*cfg.worldScale;
+  canvas.width=VW*DPR; canvas.height=VH*DPR; canvas.style.width=VW+'px'; canvas.style.height=VH+'px';
+  ctx.setTransform(DPR/cfg.worldScale,0,0,DPR/cfg.worldScale,0,0);
+  if(oldW>0&&oldH>0){ const fx=W/oldW, fy=H/oldH; for(const p of particles){ p.x*=fx; p.y*=fy; } }
+  ctx.fillStyle='#07080c'; ctx.fillRect(0,0,W,H);
+}
+function applyWorldScale(){ resize(); }
 
-/* ---------- Gitter ---------- */
-let grid=[], foodGrid=[], cols=0, rows=0, cellSize=0;
-function cellOf(x,y){ let cx=Math.floor(x/cellSize); if(cx<0)cx=0;else if(cx>=cols)cx=cols-1;
-  let cy=Math.floor(y/cellSize); if(cy<0)cy=0;else if(cy>=rows)cy=rows-1; return cy*cols+cx; }
-function buildGrids(){
-  cellSize=Math.max(8,cfg.perception);
+function buildGrid(){
+  cellSize=Math.max(8,cfg.radius);
   cols=Math.max(1,Math.floor(W/cellSize)); rows=Math.max(1,Math.floor(H/cellSize));
-  const cells=cols*rows; grid=new Array(cells); foodGrid=new Array(cells);
-  for(let i=0;i<cells;i++){ grid[i]=[]; foodGrid[i]=[]; }
-  for(let k=0;k<agents.length;k++) grid[cellOf(agents[k].x,agents[k].y)].push(k);
-  for(let k=0;k<food.length;k++) foodGrid[cellOf(food[k].x,food[k].y)].push(k);
-}
-function wrap(d,size){ if(d>size*0.5) return d-size; if(d<-size*0.5) return d+size; return d; }
-
-/* ---------- Körper labeln (jeden Frame): Größe + effektives Tempo ---------- */
-let visitTok=0;
-function labelBodies(){
-  visitTok++;
-  for(let k=0;k<agents.length;k++){
-    const a=agents[k]; if(a._v===visitTok) continue;
-    const comp=[a]; let qi=0; a._v=visitTok;
-    while(qi<comp.length){ const x=comp[qi++]; for(const e of x.bonds){ if(e.o._v!==visitTok){ e.o._v=visitTok; comp.push(e.o); } } }
-    const sz=comp.length, pen=1+cfg.sizePenalty*Math.pow(Math.max(0,sz-1),1.35);
-
-    let cvx=0,cvy=0,cx=0,cy=0;
-    for(const x of comp){ cvx+=x.vx; cvy+=x.vy; cx+=x.x; cy+=x.y; }
-    cx/=sz; cy/=sz;
-    let vl=Math.hypot(cvx,cvy);
-    let ux=vl>0.01?cvx/vl:1, uy=vl>0.01?cvy/vl:0;
-    let maxProj=0;
-    if(sz>1){ for(const x of comp){ const pr=(x.x-cx)*ux+(x.y-cy)*uy; if(Math.abs(pr)>maxProj) maxProj=Math.abs(pr); } }
-    if(maxProj<0.001) maxProj=1;
-
-    for(const x of comp){
-      let graphPol=0;
-      if(sz>1) graphPol=clamp(((x.x-cx)*ux+(x.y-cy)*uy)/maxProj,-1,1);
-      const induced=cfg.differentiation?(0.68*graphPol + 0.32*x.bias):(0.25*x.bias);
-      const role=clamp(induced,-1,1);          // +: Such-/Frontzelle, -: Haft-/Stützzelle
-      const scout=Math.max(0,role), support=Math.max(0,-role);
-      x.bodySize=sz; x.role=role;
-      x.effSpd=x.spd/pen*(1+0.18*cfg.polarityGain*scout);
-      x.effPerc=x.perc*(1+0.38*cfg.polarityGain*scout);
-      x.effMeta=1-0.20*cfg.polarityGain*support;
-      x.effSpring=1+0.70*cfg.polarityGain*support;
-      x.effShare=1+0.45*cfg.polarityGain*support;
-    }
+  const n=cols*rows; grid=new Array(n); for(let i=0;i<n;i++) grid[i]=[];
+  for(let i=0;i<particles.length;i++){
+    const p=particles[i]; let cx=Math.floor(p.x/cellSize), cy=Math.floor(p.y/cellSize);
+    if(cx<0)cx=0; else if(cx>=cols)cx=cols-1; if(cy<0)cy=0; else if(cy>=rows)cy=rows-1;
+    grid[cy*cols+cx].push(i);
   }
 }
+function step(dt=STEP_DT){
+  if(particles.length===0){ if(cfg.reserve) seedRandom(Math.max(10,cfg.minPop)); return; }
+  if(particles.length>cfg.popCap){ particles.length=cfg.popCap; }
+  buildGrid();
+  const r=cfg.radius, r2=r*r, core=Math.max(2,cfg.pointSize*3.2), core2=core*core;
+  const born=[]; let deathFlags=null;
+  frameBirths=0; frameDeaths=0;
 
-/* ---------- Lenkhilfe ---------- */
-const S={x:0,y:0};
-function steer(dx,dy,vx,vy,maxSp,out){
-  const len=Math.hypot(dx,dy); if(len===0){ out.x=0; out.y=0; return; }
-  const dvx=dx/len*maxSp, dvy=dy/len*maxSp;
-  let fx=dvx-vx, fy=dvy-vy; const fl=Math.hypot(fx,fy);
-  if(fl>cfg.maxForce){ fx=fx/fl*cfg.maxForce; fy=fy/fl*cfg.maxForce; } out.x=fx; out.y=fy;
-}
-
-/* ---------- Ein Schritt ---------- */
-function step(dt=1/60){
-  simTime+=dt;
-  buildGrids();
-  labelBodies();     // kleine Graph-Körper -> Polarisation/Differenzierung
-  computeForces();   // Nachbarn, Chemotaxis, lokale Bindungen
-  applyBonds();      // Federkräfte, Risse, Energie teilen
-  integrate();
-  lifeCycle();       // fressen, Stoffwechsel, Teilung, Tod, Reserve
-}
-
-function computeForces(){
-  const sep2=cfg.separation*cfg.separation;
-  const bondDist=cfg.separation*1.3, bondDist2=bondDist*bondDist;
-  const canBond=cfg.bonding && cfg.maxBonds>0;
-  const gain=cfg.quorum?cfg.moraleGain:0;
-  for(let k=0;k<agents.length;k++){
-    const a=agents[k];
-    const perc=a.effPerc||a.perc;
-    const perc2=perc*perc;
-    let cx=Math.floor(a.x/cellSize); if(cx<0)cx=0;else if(cx>=cols)cx=cols-1;
-    let cy=Math.floor(a.y/cellSize); if(cy<0)cy=0;else if(cy>=rows)cy=rows-1;
-
-    let sepX=0,sepY=0, aliX=0,aliY=0,aliN=0, cohX=0,cohY=0,cohN=0;
-    let attX=0,attY=0, repX=0,repY=0, allies=0, rivals=0;
-    let foodDX=0,foodDY=0,foodBest=1e9;     // nächste Nahrung (Chemotaxis)
-
+  for(let i=0;i<particles.length;i++){
+    const a=particles[i];
+    a.ax=0; a.ay=0; a.den=0; a.rel=0;
+    let alx=0, aly=0, alw=0;
+    let cx=Math.floor(a.x/cellSize), cy=Math.floor(a.y/cellSize);
+    if(cx<0)cx=0; else if(cx>=cols)cx=cols-1; if(cy<0)cy=0; else if(cy>=rows)cy=rows-1;
     const seen=new Set();
     for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++){
-      let ncx=(cx+ox+cols)%cols, ncy=(cy+oy+rows)%rows;
-      const ci=ncy*cols+ncx; if(seen.has(ci)) continue; seen.add(ci);
-
-      const bucket=grid[ci];
+      const ncx=(cx+ox+cols)%cols, ncy=(cy+oy+rows)%rows;
+      const gi=ncy*cols+ncx; if(seen.has(gi)) continue; seen.add(gi);
+      const bucket=grid[gi];
       for(let bi=0;bi<bucket.length;bi++){
-        const j=bucket[bi]; if(j===k) continue;
-        const b=agents[j];
-        let dx=wrap(b.x-a.x,W), dy=wrap(b.y-a.y,H);
-        const d2=dx*dx+dy*dy;
-        if(d2>perc2||d2===0) continue;
-        const d=Math.sqrt(d2), ux=dx/d, uy=dy/d;
-        const same=(b.s===a.s);
-        if(same) allies++; else if(matrix[a.s][b.s]<-0.2) rivals++;   // Moral-Zählung (auch Gebundene)
-
-        // BINDUNG knüpfen: ähnliche Tags, nah, freie Plätze — unabhängig von der Matrix
-        if(canBond && a.id<b.id && d2<bondDist2 &&
-           a.bonds.length<cfg.maxBonds && b.bonds.length<cfg.maxBonds &&
-           (a.bodySize+b.bodySize)<=cfg.maxBodySize &&
-           Math.abs(a.tag-b.tag)<cfg.tagTol && !bonded(a,b)){
-          const rest=cfg.separation; a.bonds.push({o:b,rest}); b.bonds.push({o:a,rest});
-        }
-        if(bonded(a,b)) continue;   // Gebundene: kohärente Einheit, keine weiteren Kräfte
-
-        if(d2<sep2){ const push=1-d/cfg.separation; sepX-=ux*push; sepY-=uy*push; }
-        if(same){ aliX+=b.vx; aliY+=b.vy; aliN++; cohX+=dx; cohY+=dy; cohN++; }
-        const m=matrix[a.s][b.s];
-        if(m>0){ const f=1-d/perc; attX+=ux*m*f; attY+=uy*m*f; }
-        else if(m<0){ const f=1-d/perc; repX+=ux*m*f; repY+=uy*m*f; }
+        const j=bucket[bi]; if(j===i) continue;
+        const b=particles[j];
+        let dx=wrapDelta(b.x-a.x,W), dy=wrapDelta(b.y-a.y,H);
+        const d2=dx*dx+dy*dy; if(d2>r2||d2===0) continue;
+        const d=Math.sqrt(d2), ux=dx/d, uy=dy/d, fall=1-d/r;
+        a.den++;
+        const gd=genomeDistance(a.g,b.g), sim=1-gd;
+        const relation=a.g[0]*sim + a.g[1]*gd;
+        a.rel+=relation;
+        let f=cfg.force*relation*fall;
+        if(d2<core2){ f-=cfg.force*cfg.coreRepel*(1-d/core); }
+        a.ax+=ux*f; a.ay+=uy*f;
+        if(relation>0){ const w=relation*fall*a.g[2]; alx+=b.vx*w; aly+=b.vy*w; alw+=w; }
       }
-      // Chemotaxis: nächste Nahrung in dieser Zelle
-      if(cfg.wFood>0){ const fb=foodGrid[ci];
-        for(let bi=0;bi<fb.length;bi++){ const f=food[fb[bi]]; if(f.dead) continue;
-          let dx=wrap(f.x-a.x,W), dy=wrap(f.y-a.y,H); const d2=dx*dx+dy*dy;
-          if(d2<perc2 && d2<foodBest){ foodBest=d2; foodDX=dx; foodDY=dy; } } }
     }
-
-    // Mehr-Arten-Regel: Über-/Unterzahl moduliert Abstoßung (Angriff vs. Flucht)
-    const morale=allies/(allies+rivals+1);
-    const repScale=1-(morale-0.5)*2*gain;
-    const intX=attX+repX*repScale, intY=attY+repY*repScale;
-
-    let fx=0,fy=0;
-    steer(sepX,sepY,a.vx,a.vy,a.effSpd,S);                  fx+=S.x*cfg.wSep; fy+=S.y*cfg.wSep;
-    if(aliN>0){ steer(aliX/aliN,aliY/aliN,a.vx,a.vy,a.effSpd,S); fx+=S.x*cfg.wAli; fy+=S.y*cfg.wAli; }
-    if(cohN>0){ steer(cohX/cohN,cohY/cohN,a.vx,a.vy,a.effSpd,S); fx+=S.x*cfg.wCoh; fy+=S.y*cfg.wCoh; }
-    if(foodBest<1e9){ steer(foodDX,foodDY,a.vx,a.vy,a.effSpd,S); const fw=cfg.wFood*(1+0.45*cfg.polarityGain*Math.max(0,a.role||0)); fx+=S.x*fw; fy+=S.y*fw; }
-    const im=Math.hypot(intX,intY);
-    if(im>0){ const cap=Math.min(im,cfg.maxForce*2); fx+=(intX/im)*cap*cfg.wInt; fy+=(intY/im)*cap*cfg.wInt; }
-    a.ax=fx; a.ay=fy;
-  }
-}
-
-function applyBonds(){
-  const CAP=0.12;
-  for(let k=0;k<agents.length;k++){
-    const a=agents[k]; if(a.bonds.length===0) continue;
-    const keep=[];
-    for(let i=0;i<a.bonds.length;i++){
-      const e=a.bonds[i], o=e.o;
-      let dx=wrap(o.x-a.x,W), dy=wrap(o.y-a.y,H);
-      const d=Math.hypot(dx,dy)||0.0001;
-      if(d>e.rest*2.6){ removeBond(o,a); continue; }     // Riss
-      let f=cfg.springK*(a.effSpring||1)*(d-e.rest); if(f>CAP)f=CAP; else if(f<-CAP)f=-CAP;
-      a.ax+=(dx/d)*f; a.ay+=(dy/d)*f;
-      if(a.id<o.id && cfg.shareRate>0){ const t=cfg.shareRate*((a.effShare||1)+(o.effShare||1))*0.25*(o.energy-a.energy); a.energy+=t; o.energy-=t; }
-      keep.push(e);
+    if(alw>0){
+      a.ax+=(alx/alw-a.vx)*cfg.alignScale*a.g[2];
+      a.ay+=(aly/alw-a.vy)*cfg.alignScale*a.g[2];
     }
-    a.bonds=keep;
+    if(cfg.noise>0){ const n=cfg.noise; a.ax+=gauss()*n; a.ay+=gauss()*n; }
   }
-}
 
-function integrate(){
-  for(let k=0;k<agents.length;k++){
-    const a=agents[k]; a.vx+=a.ax; a.vy+=a.ay;
-    const sp=Math.hypot(a.vx,a.vy), lim=a.effSpd;
+  for(let i=0;i<particles.length;i++){
+    const a=particles[i];
+    a.age+=dt;
+    a.vx=(a.vx+a.ax)*cfg.drag; a.vy=(a.vy+a.ay)*cfg.drag;
+    const sp=Math.hypot(a.vx,a.vy), lim=lerp(cfg.maxSpeed*0.35,cfg.maxSpeed,a.g[2]);
     if(sp>lim){ a.vx=a.vx/sp*lim; a.vy=a.vy/sp*lim; }
     a.x+=a.vx; a.y+=a.vy;
     if(a.x<0)a.x+=W; else if(a.x>=W)a.x-=W;
     if(a.y<0)a.y+=H; else if(a.y>=H)a.y-=H;
+
+    const target=lerp(2.5,13.5,a.g[3]);
+    a.target=target;
+    const z=(a.den-target)/Math.max(0.5,cfg.densityWidth);
+    const densityFit=Math.exp(-0.5*z*z);
+    const capFactor=clamp(1-particles.length/cfg.popCap,0,1);
+    const mature=clamp((a.age-0.7)/2,0,1);
+    const reproP=cfg.reproRate*dt*densityFit*capFactor*mature;
+    if(particles.length+born.length<cfg.popCap && Math.random()<reproP){ born.push(makeChild(a)); frameBirths++; birthsTotal++; }
+
+    const crowdLimit=target+cfg.densityWidth*(1.25+0.8*a.g[3])+3;
+    const over=Math.max(0,a.den-crowdLimit);
+    let deathP=cfg.baseDeath*dt + cfg.crowdDeath*dt*(over*over)/80;
+    if(particles.length>cfg.popCap*0.95) deathP+=dt*0.05;
+    if(Math.random()<deathP){ if(!deathFlags) deathFlags=new Uint8Array(particles.length); deathFlags[i]=1; frameDeaths++; deathsTotal++; }
+  }
+
+  if(deathFlags){
+    let w=0;
+    for(let i=0;i<particles.length;i++) if(!deathFlags[i]) particles[w++]=particles[i];
+    particles.length=w;
+  }
+  for(const c of born){ if(particles.length<cfg.popCap) particles.push(c); }
+
+  if(cfg.reserve && particles.length<cfg.minPop){
+    const need=Math.min(cfg.minPop-particles.length, Math.ceil(80*dt)+8);
+    seedRandom(need);
   }
 }
 
-function lifeCycle(){
-  const eat2=EAT_RADIUS*EAT_RADIUS;
-  const births=[]; let projected=agents.length, w=0;
-  const target=envTarget();
-  for(let k=0;k<agents.length;k++){
-    const a=agents[k];
-    let cx=Math.floor(a.x/cellSize); if(cx<0)cx=0;else if(cx>=cols)cx=cols-1;
-    let cy=Math.floor(a.y/cellSize); if(cy<0)cy=0;else if(cy>=rows)cy=rows-1;
-    const seen=new Set();
-    for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++){
-      let ncx=(cx+ox+cols)%cols, ncy=(cy+oy+rows)%rows;
-      const ci=ncy*cols+ncx; if(seen.has(ci)) continue; seen.add(ci);
-      const fb=foodGrid[ci];
-      for(let bi=0;bi<fb.length;bi++){ const f=food[fb[bi]]; if(f.dead) continue;
-        const dx=wrap(f.x-a.x,W), dy=wrap(f.y-a.y,H);
-        if(dx*dx+dy*dy<eat2){ a.energy=Math.min(MAX_ENERGY,a.energy+cfg.foodEnergy); f.dead=true; } }
-    }
-    // Stoffwechsel: einfache Trade-offs + langsam driftende Umwelt, damit mr=0 nicht optimal wird.
-    const speedCost=0.010*Math.hypot(a.vx,a.vy);
-    const senseCost=0.0006*a.effPerc;
-    const envMismatch=a.adapt-target;
-    const envCost=cfg.envPressure*envMismatch*envMismatch;
-    a.energy-=cfg.metabolism*(a.effMeta||1) + speedCost + senseCost + envCost + cfg.bondCost*a.bonds.length;
-    if(a.energy<=0){ detachAll(a); continue; }
-    // Teilung bei Schwelle; Kind dockt nur an, wenn der lokale Graph noch klein genug ist.
-    if(a.energy>=REPRO_AT && projected<POP_CAP){
-      a.energy*=0.5; const c=makeChild(a);
-      if(cfg.bonding && a.bonds.length<cfg.maxBonds && a.bodySize<cfg.maxBodySize){
-        const rest=cfg.separation; a.bonds.push({o:c,rest}); c.bonds.push({o:a,rest});
-      }
-      births.push(c); projected++;
-    }
-    agents[w++]=a;
-  }
-  agents.length=w;
-  for(let i=0;i<births.length;i++){ if(agents.length>=POP_CAP) break; agents.push(births[i]); }
-  if(cfg.rescue && agents.length<cfg.minPop){
-    const add=agents.length===0?cfg.minPop:Math.min(cfg.minPop-agents.length,8);
-    for(let i=0;i<add && agents.length<POP_CAP;i++) agents.push(newAgent());
-  }
-  compactFood(); regrowFood();
-}
-
-/* ---------- Metriken: Diversität (Tag + Umwelt-Anpassung) + Komplexität ---------- */
-function computeMetrics(){
-  const N=agents.length; if(N===0) return {div:0,cx:0,mixed:0,bodies:0,maxSize:0};
-  // Diversität = mittlere Entropie von Tag- und Umwelt-Gen
-  const TB=10, tb=new Array(TB).fill(0), ab=new Array(TB).fill(0);
-  for(const a of agents){ let bi=(a.tag*TB)|0; if(bi>=TB)bi=TB-1; if(bi<0)bi=0; tb[bi]++; let ai=(a.adapt*TB)|0; if(ai>=TB)ai=TB-1; if(ai<0)ai=0; ab[ai]++; }
-  function ent(arr){ let H=0; for(const c of arr) if(c>0){ const p=c/N; H-=p*Math.log(p); } return H/Math.log(TB); }
-  const Hd=(ent(tb)+ent(ab))*0.5;
-  // Körper: Größen + Artenmischung
-  visitTok++; let bondedCells=0, mixedCells=0; const sizes=[];
-  for(const a of agents){ if(a._v===visitTok) continue;
-    const comp=[a]; let qi=0; a._v=visitTok;
-    while(qi<comp.length){ const x=comp[qi++]; for(const e of x.bonds){ if(e.o._v!==visitTok){ e.o._v=visitTok; comp.push(e.o);} } }
-    if(comp.length>=2){ sizes.push(comp.length); bondedCells+=comp.length;
-      const sp=new Set(); for(const x of comp) sp.add(x.s); if(sp.size>1) mixedCells+=comp.length; }
-  }
-  const organization=bondedCells/N;
-  let Hs=0;
-  if(sizes.length>0){ const BB=6, bb=new Array(BB).fill(0);
-    for(const s of sizes){ let bi=Math.floor(Math.log2(s)); if(bi>=BB)bi=BB-1; if(bi<0)bi=0; bb[bi]++; }
-    for(const c of bb) if(c>0){ const p=c/sizes.length; Hs-=p*Math.log(p); } Hs/=Math.log(BB); }
-  const mixedness=bondedCells>0?mixedCells/bondedCells:0;
-  const cx=clamp(organization*(0.2+0.8*Hs)*(0.2+0.8*mixedness),0,1);
-  return {div:Hd, cx, mixed:mixedness, bodies:sizes.length, maxSize:sizes.length?Math.max(...sizes):0};
-}
-
-/* ---------- Zeichnen ---------- */
 function render(){
-  const alpha=0.5-cfg.trailLen*0.485;
-  ctx.globalCompositeOperation='source-over'; ctx.fillStyle=`rgba(8,9,13,${alpha})`; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(111,174,114,0.5)';
-  for(let k=0;k<food.length;k++){ const f=food[k]; ctx.beginPath(); ctx.arc(f.x,f.y,1.3,0,6.2832); ctx.fill(); }
+  const alpha=0.52-cfg.trailLen*0.50;
+  ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle=`rgba(7,8,12,${alpha})`; ctx.fillRect(0,0,W,H);
+
+  if(cfg.links){
+    buildGrid();
+    ctx.globalCompositeOperation='lighter'; ctx.lineWidth=0.8;
+    const maxLines=4500; let lines=0, r2=(cfg.radius*0.72)**2;
+    for(let i=0;i<particles.length && lines<maxLines;i++){
+      const a=particles[i]; let cx=Math.floor(a.x/cellSize), cy=Math.floor(a.y/cellSize);
+      const seen=new Set();
+      for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++){
+        const ncx=(cx+ox+cols)%cols,ncy=(cy+oy+rows)%rows,gi=ncy*cols+ncx; if(seen.has(gi))continue; seen.add(gi);
+        const bucket=grid[gi];
+        for(let bi=0;bi<bucket.length && lines<maxLines;bi++){
+          const j=bucket[bi]; if(j<=i) continue; const b=particles[j];
+          const dx=wrapDelta(b.x-a.x,W),dy=wrapDelta(b.y-a.y,H),d2=dx*dx+dy*dy; if(d2>r2) continue;
+          const gd=genomeDistance(a.g,b.g), sim=1-gd;
+          const rel=(a.g[0]*sim+a.g[1]*gd + b.g[0]*sim+b.g[1]*gd)*0.5;
+          if(rel<0.35) continue;
+          ctx.strokeStyle=genomeColor(a.g,0.035*rel);
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(a.x+dx,a.y+dy); ctx.stroke(); lines++;
+        }
+      }
+    }
+  }
+
   ctx.globalCompositeOperation='lighter';
-  if(cfg.bondLines){ ctx.lineWidth=1;
-    for(let k=0;k<agents.length;k++){ const a=agents[k]; if(a.bonds.length===0) continue;
-      const c=SPECIES_RGB[a.s]; ctx.strokeStyle=`rgba(${c[0]},${c[1]},${c[2]},0.22)`;
-      for(const e of a.bonds){ const o=e.o; if(a.id>o.id) continue;
-        let dx=wrap(o.x-a.x,W), dy=wrap(o.y-a.y,H);
-        if(Math.abs(dx)>W*0.5||Math.abs(dy)>H*0.5) continue;
-        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(a.x+dx,a.y+dy); ctx.stroke(); } } }
-  for(let k=0;k<agents.length;k++){ const a=agents[k]; const base=SPECIES_RGB[a.s];
-    const e=clamp(a.energy/REPRO_AT,0.15,1), role=a.role||0, ar=Math.abs(role);
-    let c=cfg.lineViz?hueBlendRgb(base,a.lineHue||0,cfg.lineMix):base;
-    if(cfg.roleViz && a.bodySize>1 && ar>0.12){
-      const target=role>0?[255,242,176]:[80,200,255];
-      c=mixRgb(c,target,0.42*ar);
-    }
-    ctx.globalAlpha=0.35+0.65*e;
-    ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;
-    const r=1.8+1.7*e+(cfg.roleViz?0.45*ar:0);
-    ctx.beginPath(); ctx.arc(a.x,a.y,r,0,6.2832); ctx.fill();
-    if(cfg.lineViz){
-      const lc=lineageRgb(a);
-      ctx.globalCompositeOperation='source-over';
-      ctx.globalAlpha=0.42+0.30*e;
-      ctx.fillStyle=`rgb(${lc[0]},${lc[1]},${lc[2]})`;
-      ctx.beginPath(); ctx.arc(a.x,a.y,Math.max(0.9,r*0.38),0,6.2832); ctx.fill();
-      ctx.globalCompositeOperation='lighter';
-    }
-    if(cfg.roleViz && a.bodySize>1 && ar>0.25){
-      ctx.globalCompositeOperation='source-over';
-      ctx.globalAlpha=0.35+0.45*ar;
-      ctx.strokeStyle=role>0?'rgba(255,242,176,0.95)':'rgba(80,200,255,0.95)';
-      ctx.lineWidth=0.8+0.8*ar; ctx.beginPath(); ctx.arc(a.x,a.y,3.3+1.3*ar,0,6.2832); ctx.stroke();
-      ctx.globalCompositeOperation='lighter';
-    } }
-  ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  for(let i=0;i<particles.length;i++){
+    const p=particles[i];
+    const rel=clamp((p.rel/Math.max(1,p.den)+1)/2,0,1);
+    const rad=cfg.pointSize*(0.75+0.55*rel+0.25*p.g[3]);
+    ctx.fillStyle=genomeColor(p.g,0.62+0.32*rel);
+    ctx.beginPath(); ctx.arc(p.x,p.y,rad,0,TAU); ctx.fill();
+  }
+  ctx.globalCompositeOperation='source-over';
 }
 
-/* ---------- Graphen ---------- */
-const spark=document.getElementById('spark'), sctx=spark.getContext('2d');
-const g2=document.getElementById('graph2'), g2ctx=g2.getContext('2d');
-let popHist=[], divHist=[], cxHist=[];
+function computeMetrics(){
+  const N=particles.length;
+  if(N===0) return {div:0,den:0,g0:0,g1:0,g2:0,g3:0,gen:0};
+  let den=0,g0=0,g1=0,g2=0,g3=0,gen=0;
+  const bins=24, hist=new Array(bins).fill(0);
+  for(const p of particles){
+    den+=p.den; g0+=p.g[0]; g1+=p.g[1]; g2+=p.g[2]; g3+=p.g[3]; gen+=p.gen;
+    const hue=(Math.atan2(p.g[1],p.g[0])+Math.PI)/TAU; let bi=Math.floor(hue*bins); if(bi>=bins)bi=bins-1; if(bi<0)bi=0; hist[bi]++;
+  }
+  let H=0; for(const c of hist) if(c>0){ const p=c/N; H-=p*Math.log(p); } H/=Math.log(bins);
+  return {div:H, den:den/N, g0:g0/N, g1:g1/N, g2:g2/N, g3:g3/N, gen:gen/N};
+}
+
 function pushSeries(arr,v,max){ arr.push(v); if(arr.length>max) arr.shift(); }
 function plot(c,w,h,hist,color,maxV){
-  if(hist.length<2) return; let mx=maxV;
-  if(mx==null){ mx=1; for(const v of hist) if(v>mx)mx=v; }
+  if(hist.length<2) return;
+  let mx=maxV; if(mx==null){ mx=1; for(const v of hist) if(v>mx) mx=v; }
   c.beginPath();
-  for(let i=0;i<hist.length;i++){ const x=i/(hist.length-1)*(w-2)+1, y=h-2-(hist[i]/mx)*(h-5);
-    if(i===0)c.moveTo(x,y); else c.lineTo(x,y); }
+  for(let i=0;i<hist.length;i++){
+    const x=i/(hist.length-1)*(w-2)+1, y=h-2-(hist[i]/Math.max(0.0001,mx))*(h-5);
+    if(i===0)c.moveTo(x,y); else c.lineTo(x,y);
+  }
   c.strokeStyle=color; c.lineWidth=1.5; c.stroke();
 }
 function drawGraphs(){
   sctx.clearRect(0,0,spark.width,spark.height);
   plot(sctx,spark.width,spark.height,popHist,'#38e1d6',null);
-  g2ctx.clearRect(0,0,g2.width,g2.height);
-  plot(g2ctx,g2.width,g2.height,divHist,'#9d7bff',1);   // Diversität (violett)
-  plot(g2ctx,g2.width,g2.height,cxHist,'#ff9f45',1);    // Komplexität (orange)
+  g2ctx.clearRect(0,0,g2canvas.width,g2canvas.height);
+  plot(g2ctx,g2canvas.width,g2canvas.height,divHist,'#ff9f45',1);
+  plot(g2ctx,g2canvas.width,g2canvas.height,birthHist,'#9d7bff',null);
+}
+function updateHUD(){
+  lastMetrics=computeMetrics();
+  document.getElementById('rPop').textContent=particles.length;
+  document.getElementById('rDiv').textContent=lastMetrics.div.toFixed(2);
+  document.getElementById('rDen').textContent=lastMetrics.den.toFixed(1);
+  document.getElementById('rBorn').textContent=birthsTotal;
+  document.getElementById('rDead').textContent=deathsTotal;
+  document.getElementById('rGen').textContent=lastMetrics.gen.toFixed(1);
+  document.getElementById('rG0').textContent=lastMetrics.g0.toFixed(2);
+  document.getElementById('rG1').textContent=lastMetrics.g1.toFixed(2);
+  document.getElementById('rG2').textContent=lastMetrics.g2.toFixed(2);
+  document.getElementById('rG3').textContent=lastMetrics.g3.toFixed(2);
+  pushSeries(popHist,particles.length,180); pushSeries(divHist,lastMetrics.div,180); pushSeries(birthHist,frameBirths,180);
+  drawGraphs();
 }
 
-/* ---------- Schleife ---------- */
-let lastT=performance.now(), fpsAcc=0, fpsN=0;
 function loop(t){
-  const dt=t-lastT; lastT=t;
-  if(searching){ requestAnimationFrame(loop); return; }   // während Suche pausiert die Live-Sim
-  fpsAcc+=dt; fpsN++;
-  if(fpsAcc>400){ document.getElementById('rFps').textContent=Math.round(1000/(fpsAcc/fpsN)); fpsAcc=0; fpsN=0; }
-  if(!paused) step(Math.min(dt/1000,0.05));
+  const elapsed=Math.min(0.25,(t-lastFrame)/1000); lastFrame=t;
+  fpsAcc+=elapsed; fpsN++; if(fpsAcc>0.5){ document.getElementById('rFps').textContent=Math.round(fpsN/fpsAcc); fpsAcc=0; fpsN=0; }
+  if(!paused){
+    accumulator+=elapsed;
+    let steps=0;
+    while(accumulator>=STEP_DT && steps<MAX_CATCHUP){ step(STEP_DT); accumulator-=STEP_DT; steps++; }
+    if(steps>=MAX_CATCHUP) accumulator=0;
+  }
   render();
   requestAnimationFrame(loop);
 }
 
-/* ---------- Größe / Welt-Zoom ---------- */
-function resize(){
-  DPR=Math.min(window.devicePixelRatio||1,2);
-  const VW=window.innerWidth, VH=window.innerHeight;   // sichtbares Fenster
-  W=VW*cfg.worldScale; H=VH*cfg.worldScale;            // simulierte Welt (größer als der Bildschirm)
-  canvas.width=VW*DPR; canvas.height=VH*DPR; canvas.style.width=VW+'px'; canvas.style.height=VH+'px';
-  const s=DPR/cfg.worldScale;                          // Welt -> Bildschirm verkleinern
-  ctx.setTransform(s,0,0,s,0,0); ctx.fillStyle='#08090d'; ctx.fillRect(0,0,W,H);
-}
-// Beim Ändern der Weltgröße Positionen mitskalieren -> Population bleibt erhalten
-function applyWorldScale(){
-  const oldW=W, oldH=H; resize();
-  if(oldW>0 && oldH>0){ const fx=W/oldW, fy=H/oldH;
-    for(const a of agents){ a.x*=fx; a.y*=fy; }
-    for(const f of food){ f.x*=fx; f.y*=fy; } }
-}
-
-/* ---------- Matrix-UI ---------- */
-function cellColor(v){ const ne=[20,23,31], co=[43,108,255], wa=[160,224,74];
-  const t=Math.abs(v), g=v>=0?wa:co;
-  return `rgb(${(ne[0]+(g[0]-ne[0])*t)|0},${(ne[1]+(g[1]-ne[1])*t)|0},${(ne[2]+(g[2]-ne[2])*t)|0})`; }
-function renderMatrix(){
-  const n=cfg.numSpecies, box=document.getElementById('matrix');
-  box.style.gridTemplateColumns=`0.9fr repeat(${n}, 1fr)`; box.innerHTML='';
-  const corner=document.createElement('div'); corner.className='mcell head'; box.appendChild(corner);
-  for(let j=0;j<n;j++){ const h=document.createElement('div'); h.className='mcell head';
-    const s=document.createElement('div'); s.className='swatch'; s.style.color=SPECIES_COLORS[j]; s.style.background=SPECIES_COLORS[j];
-    h.appendChild(s); box.appendChild(h); }
-  for(let i=0;i<n;i++){ const rh=document.createElement('div'); rh.className='mcell head';
-    const s=document.createElement('div'); s.className='swatch'; s.style.color=SPECIES_COLORS[i]; s.style.background=SPECIES_COLORS[i];
-    rh.appendChild(s); box.appendChild(rh);
-    for(let j=0;j<n;j++){ const c=document.createElement('div'); c.className='mcell';
-      c.style.background=cellColor(matrix[i][j]); c.title=matrix[i][j].toFixed(2);
-      c.addEventListener('click',()=>{ const st=[-1,-0.5,0,0.5,1];
-        let idx=st.findIndex(v=>Math.abs(v-matrix[i][j])<0.26); matrix[i][j]=st[(idx+1)%st.length];
-        c.style.background=cellColor(matrix[i][j]); c.title=matrix[i][j].toFixed(2); });
-      box.appendChild(c); } }
-}
-
-/* ---------- Regler & Schalter (mit Registry für syncSliders) ---------- */
 const sliderReg=[];
 function bindSlider(id,valId,key,fmt,onChange){
   const el=document.getElementById(id), out=document.getElementById(valId);
@@ -754,178 +468,74 @@ function bindSlider(id,valId,key,fmt,onChange){
   el.addEventListener('input',()=>{ cfg[key]=parseFloat(el.value); upd(); if(onChange) onChange(cfg[key]); }); upd();
   sliderReg.push({el,out,key,fmt});
 }
-function syncSliders(){ for(const r of sliderReg){ r.el.value=cfg[r.key]; r.out.textContent=r.fmt(cfg[r.key]); } }
-function bindToggle(id,key){ const el=document.getElementById(id); el.checked=cfg[key]; el.addEventListener('change',()=>{ cfg[key]=el.checked; }); }
+function bindToggle(id,key){
+  const el=document.getElementById(id); el.checked=cfg[key];
+  el.addEventListener('change',()=>{ cfg[key]=el.checked; });
+}
+function syncControls(){
+  for(const r of sliderReg){ r.el.value=cfg[r.key]; r.out.textContent=r.fmt(cfg[r.key]); }
+  document.getElementById('cReserve').checked=cfg.reserve;
+  document.getElementById('cLinks').checked=cfg.links;
+  document.getElementById('cGenome').checked=cfg.genomeColors;
+}
 const f0=v=>String(Math.round(v)), f1=v=>v.toFixed(1), f2=v=>v.toFixed(2), f3=v=>v.toFixed(3);
 
-bindToggle('cBond','bonding'); bindToggle('cBondLines','bondLines'); bindToggle('cQuorum','quorum');
-bindToggle('cDiff','differentiation'); bindToggle('cRoleViz','roleViz'); bindToggle('cLineViz','lineViz'); bindToggle('cRescue','rescue');
-bindSlider('sTagTol','vTagTol','tagTol',f2);
-bindSlider('sSize','vSize','sizePenalty',f2);
-bindSlider('sBondCost','vBondCost','bondCost',f3);
-bindSlider('sFood','vFood','wFood',f1);
-bindSlider('sSpring','vSpring','springK',f3);
-bindSlider('sShare','vShare','shareRate',f2);
-bindSlider('sMaxB','vMaxB','maxBonds',f0);
-bindSlider('sLineMix','vLineMix','lineMix',f2);
-bindSlider('sLineDrift','vLineDrift','lineDrift',f3);
-bindSlider('sMaxBody','vMaxBody','maxBodySize',f0);
-bindSlider('sPolarity','vPolarity','polarityGain',f1);
-bindSlider('sMorale','vMorale','moraleGain',f1);
-bindSlider('sFoodMax','vFoodMax','foodMax',f0);
-bindSlider('sFoodRate','vFoodRate','foodRate',f0);
-bindSlider('sFoodE','vFoodE','foodEnergy',f0);
-bindSlider('sMeta','vMeta','metabolism',f2);
-bindSlider('sEnvDrift','vEnvDrift','envDrift',f2);
-bindSlider('sEnvPressure','vEnvPressure','envPressure',f3);
+bindSlider('sStartN','vStartN','startN',f0);
+bindSlider('sPopCap','vPopCap','popCap',f0,v=>{ if(particles.length>v) particles.length=Math.round(v); });
+bindToggle('cReserve','reserve');
 bindSlider('sMinPop','vMinPop','minPop',f0);
-bindSlider('sMutTag','vMutTag','mutTag',f3);
-bindSlider('sMutPerc','vMutPerc','mutPerc',f2);
-bindSlider('sMutSpd','vMutSpd','mutSpd',f2);
-bindSlider('sMutBias','vMutBias','mutBias',f2);
-bindSlider('sMutAdapt','vMutAdapt','mutAdapt',f2);
-bindSlider('sMutFloor','vMutFloor','mutFloor',f2);
-bindSlider('sMutMeta','vMutMeta','mutMeta',f2);
-bindToggle('cEvoMut','evolvableMut');
-bindSlider('sWorld','vWorld','worldScale',f1,()=>applyWorldScale());
-bindSlider('sAgents','vAgents','numAgents',f0,v=>setAgentCount(Math.round(v)));
-bindSlider('sSpecies','vSpecies','numSpecies',f0,v=>setSpeciesCount(Math.round(v)));
-bindSlider('sPerc','vPerc','perception',f0);
+bindSlider('sRadius','vRadius','radius',f0);
+bindSlider('sForce','vForce','force',f3);
+bindSlider('sCore','vCore','coreRepel',f1);
+bindSlider('sAlign','vAlign','alignScale',f3);
+bindSlider('sNoise','vNoise','noise',f3);
 bindSlider('sSpeed','vSpeed','maxSpeed',f1);
-bindSlider('sSep','vSep','separation',f0);
-bindSlider('wSep','vwSep','wSep',f1);
-bindSlider('wAli','vwAli','wAli',f1);
-bindSlider('wCoh','vwCoh','wCoh',f1);
-bindSlider('wInt','vwInt','wInt',f1);
+bindSlider('sRepro','vRepro','reproRate',f2);
+bindSlider('sDensityWidth','vDensityWidth','densityWidth',f1);
+bindSlider('sCrowdDeath','vCrowdDeath','crowdDeath',f2);
+bindSlider('sBaseDeath','vBaseDeath','baseDeath',f3);
+bindSlider('sMutation','vMutation','mutation',f3);
+bindSlider('sInnovation','vInnovation','innovation',f3);
+bindSlider('sMinMutation','vMinMutation','minMutation',f3);
+bindSlider('sWorld','vWorld','worldScale',f1,applyWorldScale);
 bindSlider('sTrail','vTrail','trailLen',f2);
+bindSlider('sPoint','vPoint','pointSize',f1);
+bindToggle('cLinks','links'); bindToggle('cGenome','genomeColors');
 
-document.getElementById('bRandom').addEventListener('click',randomizeMatrix);
-document.getElementById('bReset').addEventListener('click',()=>{ spawnAgents(cfg.numAgents); resetFood(); popHist=[];divHist=[];cxHist=[]; });
+function randomizeAll(){
+  cfg.startN=Math.round(rand(1200,6200)/100)*100;
+  cfg.popCap=Math.round(rand(Math.max(cfg.startN+800,2600),10000)/250)*250;
+  cfg.minPop=Math.round(rand(250,1800)/50)*50;
+  cfg.reserve=Math.random()<0.9;
+  cfg.radius=Math.round(rand(22,76)/2)*2;
+  cfg.force=+rand(0.02,0.12).toFixed(3);
+  cfg.coreRepel=+rand(0.8,3.5).toFixed(1);
+  cfg.alignScale=+rand(0.005,0.09).toFixed(3);
+  cfg.noise=+rand(0.002,0.028).toFixed(3);
+  cfg.maxSpeed=+rand(0.8,3.2).toFixed(1);
+  cfg.reproRate=+rand(0.12,1.8).toFixed(2);
+  cfg.densityWidth=+rand(2.0,9.0).toFixed(1);
+  cfg.crowdDeath=+rand(0.25,1.6).toFixed(2);
+  cfg.baseDeath=+rand(0.002,0.035).toFixed(3);
+  cfg.mutation=+rand(0.012,0.09).toFixed(3);
+  cfg.innovation=+rand(0.001,0.018).toFixed(3);
+  cfg.minMutation=+rand(0.002,0.018).toFixed(3);
+  cfg.trailLen=+rand(0.42,0.90).toFixed(2);
+  cfg.pointSize=+rand(1.1,2.8).toFixed(1);
+  cfg.links=Math.random()<0.28;
+  cfg.genomeColors=true;
+  syncControls();
+}
+
+document.getElementById('bReset').addEventListener('click',reset);
 const bPause=document.getElementById('bPause');
 bPause.addEventListener('click',()=>{ paused=!paused; bPause.textContent=paused?'Weiter':'Pause'; });
-const panel=document.getElementById('panel');
-document.getElementById('toggle').addEventListener('click',()=>panel.classList.toggle('collapsed'));
+document.getElementById('bChaos').addEventListener('click',()=>{ randomizeAll(); });
+document.getElementById('toggle').addEventListener('click',()=>document.getElementById('panel').classList.toggle('collapsed'));
 window.addEventListener('resize',resize);
 
-/* ===================================================================
-   ANALYSE-LABOR: headless Grid-Suche + Bergsteiger-Verfeinerung
-   =================================================================== */
-const EVAL_W=680, EVAL_H=500, EVAL_N=260, EVAL_STEPS=620;
-const searchInfo=document.getElementById('searchInfo'), searchRes=document.getElementById('searchRes');
-
-function objLabel(o){ return o==='complexity'?'Komplexität':o==='diversity'?'Diversität':'Stabilität'; }
-function setSearchUI(on){
-  searching=on;
-  for(const id of ['bGrid','bRefine','bRandom','bReset','bPause']) document.getElementById(id).disabled=on;
-}
-
-// Bewertet eine Parameter-Kombination headless (ohne Rendern)
-async function evalConfig(p, obj){
-  cfg.metabolism=p.metabolism; cfg.sizePenalty=p.sizePenalty; cfg.tagTol=p.tagTol;
-  spawnAgents(EVAL_N); resetFood();
-  let acc=0,accN=0, pSum=0,pSum2=0,pN=0, extinct=false;
-  for(let t=0;t<EVAL_STEPS;t++){
-    step();
-    if(agents.length===0){ extinct=true; break; }
-    if(t>EVAL_STEPS*0.5 && t%25===0){
-      const m=computeMetrics();
-      if(obj==='complexity') acc+=m.cx; else if(obj==='diversity') acc+=m.div;
-      accN++; pSum+=agents.length; pSum2+=agents.length*agents.length; pN++;
-    }
-    if(t%100===0) await yieldUI();
-  }
-  if(extinct) return 0;
-  if(obj==='stability'){
-    const mean=pSum/Math.max(1,pN), varr=pSum2/Math.max(1,pN)-mean*mean, std=Math.sqrt(Math.max(0,varr));
-    const cv=mean>0?std/mean:1, fill=clamp(mean/(EVAL_N*1.3),0,1);
-    return fill*(1-clamp(cv,0,1));
-  }
-  return accN>0?acc/accN:0;
-}
-
-async function gridSearch(){
-  if(searching) return; setSearchUI(true); searchRes.textContent='';
-  const snap={...cfg}, saveW=W, saveH=H, obj=document.getElementById('objSel').value;
-  let best=null, bestScore=-1;
-  try {
-    W=EVAL_W; H=EVAL_H; cfg.foodMax=420; cfg.foodRate=120;
-    const metaV=[0.05,0.09,0.14], sizeV=[0.02,0.06,0.12], tolV=[0.06,0.14,0.24];
-    let i=0;
-    for(const m of metaV) for(const sp of sizeV) for(const tl of tolV){
-      const sc=await evalConfig({metabolism:m,sizePenalty:sp,tagTol:tl},obj);
-      i++; searchInfo.innerHTML=`Suche <b>${i}/27</b> · bester Score <b>${Math.max(0,bestScore).toFixed(3)}</b>`;
-      if(sc>bestScore){ bestScore=sc; best={metabolism:m,sizePenalty:sp,tagTol:tl}; }
-    }
-    searchInfo.textContent='Grid-Suche fertig.';
-    if(best) searchRes.innerHTML=`Bestes (<b>${objLabel(obj)}</b> ${bestScore.toFixed(3)}): Stoffw. ${best.metabolism}, Größe ${best.sizePenalty}, Tol. ${best.tagTol}`;
-  } catch(err){ searchInfo.textContent='Suche abgebrochen.'; }
-  finally {
-    W=saveW; H=saveH; Object.assign(cfg,snap);
-    if(best) Object.assign(cfg,best);
-    syncSliders(); spawnAgents(cfg.numAgents); resetFood(); popHist=[];divHist=[];cxHist=[];
-    setSearchUI(false);
-  }
-}
-
-async function refine(){
-  if(searching) return; setSearchUI(true); searchRes.textContent='';
-  const snap={...cfg}, saveW=W, saveH=H, obj=document.getElementById('objSel').value;
-  const lo={metabolism:0.03,sizePenalty:0,tagTol:0.02}, hi={metabolism:0.25,sizePenalty:0.2,tagTol:0.4};
-  const st={metabolism:0.02,sizePenalty:0.02,tagTol:0.03};
-  let cur={metabolism:snap.metabolism,sizePenalty:snap.sizePenalty,tagTol:snap.tagTol}, curScore=0;
-  try {
-    W=EVAL_W; H=EVAL_H; cfg.foodMax=420; cfg.foodRate=120;
-    curScore=await evalConfig(cur,obj); let evals=1;
-    for(let it=0;it<4;it++){
-      let bestN=null, bestS=curScore;
-      for(const key of ['metabolism','sizePenalty','tagTol']) for(const dir of [-1,1]){
-        const cand={...cur}; cand[key]=clamp(+(cur[key]+dir*st[key]).toFixed(3),lo[key],hi[key]);
-        if(cand[key]===cur[key]) continue;
-        const s=await evalConfig(cand,obj); evals++;
-        searchInfo.innerHTML=`Verfeinern · Runde <b>${it+1}/4</b> · Score <b>${bestS.toFixed(3)}</b>`;
-        if(s>bestS){ bestS=s; bestN=cand; }
-      }
-      if(!bestN) break; cur=bestN; curScore=bestS;
-    }
-    searchInfo.textContent=`Verfeinern fertig (${evals} Auswertungen).`;
-    searchRes.innerHTML=`Optimum (<b>${objLabel(obj)}</b> ${curScore.toFixed(3)}): Stoffw. ${cur.metabolism}, Größe ${cur.sizePenalty}, Tol. ${cur.tagTol}`;
-  } catch(err){ searchInfo.textContent='Verfeinern abgebrochen.'; }
-  finally {
-    W=saveW; H=saveH; Object.assign(cfg,snap); Object.assign(cfg,cur);
-    syncSliders(); spawnAgents(cfg.numAgents); resetFood(); popHist=[];divHist=[];cxHist=[];
-    setSearchUI(false);
-  }
-}
-
-document.getElementById('bGrid').addEventListener('click',gridSearch);
-document.getElementById('bRefine').addEventListener('click',refine);
-
-/* ---------- Start ---------- */
-resize();
-matrix=defaultMatrix(cfg.numSpecies);
-spawnAgents(cfg.numAgents); resetFood(); renderMatrix();
-
-setInterval(()=>{
-  if(searching) return;
-  document.getElementById('rPop').textContent=agents.length;
-  document.getElementById('rFood').textContent=food.length;
-  if(agents.length){
-    let gn=0, mrSum=0, polSum=0, lowMut=0; for(const a of agents){ gn+=a.gen; mrSum+=a.mr; polSum+=Math.abs(a.role||0); if(a.mr<cfg.mutFloor+0.05) lowMut++; }
-    const m=computeMetrics();
-    document.getElementById('rDiv').textContent=m.div.toFixed(2);
-    document.getElementById('rCx').textContent=m.cx.toFixed(2);
-    document.getElementById('rBodies').textContent=m.bodies;
-    document.getElementById('rMax').textContent=m.maxSize;
-    document.getElementById('rMix').textContent=Math.round(m.mixed*100);
-    document.getElementById('rGen').textContent=(gn/agents.length).toFixed(0);
-    document.getElementById('rMut').textContent=(mrSum/agents.length).toFixed(2);
-    document.getElementById('rEnv').textContent=envTarget().toFixed(2);
-    document.getElementById('rPol').textContent=(polSum/agents.length).toFixed(2);
-    document.getElementById('rLowMut').textContent=Math.round(lowMut/agents.length*100);
-    if(!paused){ pushSeries(popHist,agents.length,180); pushSeries(divHist,m.div,180); pushSeries(cxHist,m.cx,180); drawGraphs(); }
-  }
-},400);
-
+resize(); reset();
+setInterval(updateHUD,500);
 requestAnimationFrame(loop);
 </script>
 </body>
