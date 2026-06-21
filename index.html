@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Agentenwelt — Stufe 2 + Analyse-Labor</title>
+<title>Agentenwelt — Final: Evolution, Schocks, Rekombination</title>
 <style>
   :root { --bg:#08090d; --panel:rgba(14,17,23,0.93); --border:#1e2330;
     --text:#d8dde8; --muted:#6b7585; --accent:#38e1d6; }
@@ -70,6 +70,17 @@
   .swatch { width:62%; height:62%; border-radius:50%; box-shadow:0 0 6px currentColor; }
   .legend-bar { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11px; color:var(--muted); }
   .legend-bar .scale { flex:1; height:8px; border-radius:4px; background:linear-gradient(90deg,#2b6cff,#14171f 50%,#a0e04a); }
+  .phylo { position:fixed; z-index:4; left:16px; bottom:16px; width:318px; pointer-events:none;
+    background:rgba(8,9,13,.52); border:1px solid rgba(30,35,48,.72); border-radius:12px; padding:9px 10px 8px;
+    backdrop-filter:blur(6px); box-shadow:0 8px 24px rgba(0,0,0,.22); }
+  .phylo .ptitle { font-size:10px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin-bottom:4px; }
+  .phylo canvas { display:block; width:296px; height:150px; opacity:.94; }
+  .phylo .pinfo { color:var(--muted); font-size:10px; line-height:1.25; margin-top:3px; min-height:13px; }
+  @media (max-width:819px) { .phylo { display:none; } }
+
+  .errorbox { position:fixed; z-index:1000; left:16px; right:16px; bottom:16px; max-height:42vh; overflow:auto;
+    white-space:pre-wrap; background:rgba(80,12,24,.96); border:1px solid #ff6b6b; color:#ffe6e6;
+    border-radius:12px; padding:12px; font-size:12px; line-height:1.4; box-shadow:0 8px 30px rgba(0,0,0,.35); }
 </style>
 </head>
 <body>
@@ -80,18 +91,26 @@
     <div class="readout"><b id="rPop">0</b> Zellen · <b id="rFood">0</b> Nahrung · <b id="rFps">0</b> fps</div>
     <div class="stat">Diversität <b id="rDiv">–</b> · Komplexität <b id="rCx">–</b></div>
     <div class="stat">Körper <b id="rBodies">0</b> (max <b id="rMax">0</b>, gemischt <b id="rMix">0</b>%) · Gen <b id="rGen">0</b> · Mut ⌀<b id="rMut">1.0</b></div>
-    <div class="stat">Schock <b id="rShock">–</b> · sexuelle Geburten <b id="rSex">0</b>%</div>
+    <div class="stat">Schock <b id="rShock">–</b> · sexuelle Geburten <b id="rSex">0</b>% · Robustheit ⌀<b id="rHard">–</b></div>
+    <div class="stat">Kampf-Tode <b id="rKills">0</b> · Fleischenergie <b id="rMeat">0</b> · Linien <b id="rLines">0</b></div>
+    <div class="stat">Meta-Org <b id="rMetaBodies">0</b> · Meta-Links <b id="rMetaLinks">0</b> · Meta-Kraft <b id="rMetaPower">0.00</b></div>
     <div class="graphs">
       <canvas id="spark" width="150" height="40"></canvas>
       <canvas id="graph2" width="150" height="40"></canvas>
     </div>
   </div>
 
+  <div class="phylo" id="phyloBox">
+    <div class="ptitle">Phylogenie dominanter Linien</div>
+    <canvas id="phylo" width="296" height="150"></canvas>
+    <div class="pinfo" id="phyloInfo">–</div>
+  </div>
+
   <button class="toggle" id="toggle" aria-label="Steuerung ein-/ausblenden">⚙</button>
 
   <aside class="panel" id="panel">
-    <h1>Agentenwelt · Stufe 2</h1>
-    <p class="sub">Vererbte Adhäsions-Tags, Umweltschocks und Rekombination lassen mehrzellige — auch artübergreifende — Körper entstehen. Das Labor sucht stabile, komplexe Regime.</p>
+    <h1>Agentenwelt · Final</h1>
+    <p class="sub">Stufe 1 (Adhäsion/Körperbildung) und Stufe 2 (Umweltschocks/Rekombination) sind hier zu einem finalen Evolutionslabor verbunden. Nichtlineare Kosten/Nutzen verhindern triviale Extremwerte.</p>
 
     <div class="group">
       <div class="legend">Analyse-Labor</div>
@@ -111,11 +130,29 @@
 
     <div class="group">
       <div class="legend">Welt</div>
+      <select class="act" id="presetSel">
+        <option value="final">Preset: Finales Gleichgewicht</option>
+        <option value="stage1">Preset: Stufe 1 — nur Adhäsion</option>
+        <option value="shock">Preset: Schock-Selektion</option>
+        <option value="recomb">Preset: Rekombinationslabor</option>
+        <option value="linear">Preset: lineares Kontrollmodell</option>
+      </select>
       <div class="btns">
+        <button class="act primary" id="bPreset">Preset laden</button>
         <button class="act" id="bRandom">🎲 Matrix würfeln</button>
         <button class="act" id="bReset">Neu starten</button>
         <button class="act" id="bPause">Pause</button>
       </div>
+    </div>
+
+    <div class="group">
+      <div class="legend">Modellform</div>
+      <p class="note">Gene bleiben linear und begrenzt. Die Wirkung im Organismus ist optional nichtlinear: Nutzen sättigt, Kosten steigen konvex. Dadurch entstehen realistischere Trade-offs statt reiner Extremwert-Selektion.</p>
+      <div class="toggle-row"><input type="checkbox" id="cNonlinear"><label for="cNonlinear">Nichtlineare Phänotypen</label></div>
+      <div class="ctrl"><div class="row"><label for="sCostCurve">Kosten-Krümmung</label><span class="val" id="vCostCurve"></span></div>
+        <input type="range" id="sCostCurve" min="1" max="3" step="0.05"></div>
+      <div class="ctrl"><div class="row"><label for="sBenefitSat">Nutzen-Sättigung</label><span class="val" id="vBenefitSat"></span></div>
+        <input type="range" id="sBenefitSat" min="0.2" max="4" step="0.1"></div>
     </div>
 
     <div class="group">
@@ -177,6 +214,28 @@
       <div class="toggle-row"><input type="checkbox" id="cQuorum"><label for="cQuorum">Stärke in Zahlen</label></div>
       <div class="ctrl"><div class="row"><label for="sMorale">Moral-Einfluss</label><span class="val" id="vMorale"></span></div>
         <input type="range" id="sMorale" min="0" max="2" step="0.1"></div>
+      <p class="note">Positive Matrixwerte liefern jetzt Kooperationsenergie; negative Matrixwerte ermöglichen Kontaktkampf mit Fraßgewinn.</p>
+      <div class="ctrl"><div class="row"><label for="sCoop">Kooperationsgewinn</label><span class="val" id="vCoop"></span></div>
+        <input type="range" id="sCoop" min="0" max="0.08" step="0.002"></div>
+      <div class="toggle-row"><input type="checkbox" id="cCombat"><label for="cCombat">gegenseitig fressen erlauben</label></div>
+      <div class="ctrl"><div class="row"><label for="sPredation">Fraß-Stärke</label><span class="val" id="vPredation"></span></div>
+        <input type="range" id="sPredation" min="0" max="0.30" step="0.01"></div>
+      <div class="ctrl"><div class="row"><label for="sMeatGain">Fraß-Nutzen</label><span class="val" id="vMeatGain"></span></div>
+        <input type="range" id="sMeatGain" min="0" max="1" step="0.05"></div>
+    </div>
+
+    <div class="group">
+      <div class="legend">Meta-Organismen</div>
+      <p class="note">Wenn Arten groß genug sind, bilden ihre Schwerpunkte Meta-Knoten. Positive Art-Interaktionen können diese Knoten verbinden; die verbundenen Arten erhalten Synergie, Schockpuffer, Koordination und Kampfvorteile.</p>
+      <div class="toggle-row"><input type="checkbox" id="cMetaOrg"><label for="cMetaOrg">Meta-Organismen erlauben</label></div>
+      <div class="ctrl"><div class="row"><label for="sMetaMinPop">Mindestzahl je Art</label><span class="val" id="vMetaMinPop"></span></div>
+        <input type="range" id="sMetaMinPop" min="20" max="600" step="10"></div>
+      <div class="ctrl"><div class="row"><label for="sMetaRange">Meta-Verbindungsradius</label><span class="val" id="vMetaRange"></span></div>
+        <input type="range" id="sMetaRange" min="80" max="900" step="20"></div>
+      <div class="ctrl"><div class="row"><label for="sMetaBenefit">Meta-Synergie</label><span class="val" id="vMetaBenefit"></span></div>
+        <input type="range" id="sMetaBenefit" min="0" max="0.20" step="0.005"></div>
+      <div class="ctrl"><div class="row"><label for="sMetaPull">Meta-Kohäsion</label><span class="val" id="vMetaPull"></span></div>
+        <input type="range" id="sMetaPull" min="0" max="1.5" step="0.05"></div>
     </div>
 
     <div class="group">
@@ -213,6 +272,11 @@
         <input type="range" id="sAgents" min="100" max="3000" step="50"></div>
       <div class="ctrl"><div class="row"><label for="sSpecies">Arten</label><span class="val" id="vSpecies"></span></div>
         <input type="range" id="sSpecies" min="2" max="12" step="1"></div>
+      <div class="toggle-row"><input type="checkbox" id="cPhylo"><label for="cPhylo">Phylogenie anzeigen</label></div>
+      <div class="ctrl"><div class="row"><label for="sPhyloFork">Phylo-Aufspaltung</label><span class="val" id="vPhyloFork"></span></div>
+        <input type="range" id="sPhyloFork" min="0.04" max="0.40" step="0.01"></div>
+      <div class="ctrl"><div class="row"><label for="sPhyloTop">Top-Linien</label><span class="val" id="vPhyloTop"></span></div>
+        <input type="range" id="sPhyloTop" min="3" max="12" step="1"></div>
       <div class="ctrl"><div class="row"><label for="sPerc">Max Sichtweite</label><span class="val" id="vPerc"></span></div>
         <input type="range" id="sPerc" min="20" max="120" step="2"></div>
       <div class="ctrl"><div class="row"><label for="sSpeed">Max Tempo</label><span class="val" id="vSpeed"></span></div>
@@ -243,6 +307,14 @@
   </aside>
 
 <script>
+
+window.addEventListener('error', e=>showPreviewError(e.error&&e.error.stack?e.error.stack:(e.message||String(e))));
+window.addEventListener('unhandledrejection', e=>showPreviewError(e.reason&&e.reason.stack?e.reason.stack:String(e.reason)));
+function showPreviewError(msg){
+  let box=document.getElementById('previewErrorBox');
+  if(!box){ box=document.createElement('pre'); box.id='previewErrorBox'; box.className='errorbox'; document.body.appendChild(box); }
+  box.textContent='JavaScript-Fehler in der Vorschau:\n'+msg;
+}
 /* ===================================================================
    AGENTENWELT — STUFE 1: von Einzelzellen zu (auch artübergreifenden)
    Körpern, plus ein Analyse-Labor (Grid-Suche + Verfeinern).
@@ -266,22 +338,30 @@ const SPECIES_RGB = SPECIES_COLORS.map(hexToRgb);
 const POP_CAP=3000, MAX_ENERGY=130, REPRO_AT=110, START_ENERGY=60, EAT_RADIUS=7;
 
 const cfg = {
-  numAgents:1000, numSpecies:6, worldScale:1.5,
+  numAgents:650, numSpecies:6, worldScale:1.5,
   perception:64, separation:22, maxSpeed:2.2, maxForce:0.06,
   wSep:1.6, wAli:0.8, wCoh:0.5, wInt:1.0, wFood:0.6, trailLen:0.62,
-  foodMax:1500, foodRate:300, foodEnergy:40, metabolism:0.09,
+  foodMax:950, foodRate:220, foodEnergy:40, metabolism:0.09,
   // Mutation: eigene Rate je Gen + optional vererbbare Mutationsrate (mr)
   mutPerc:0.08, mutSpd:0.08, mutTag:0.04, evolvableMut:false, mutMeta:0.10,
   bonding:true, springK:0.05, shareRate:0.07, maxBonds:6, bondLines:true,
   tagTol:0.12, sizePenalty:0.06, bondCost:0.004,
-  quorum:true, moraleGain:1.0,
+  quorum:true, moraleGain:1.0, coopBenefit:0.030,
+  combat:true, predation:0.11, meatGain:0.55,
+  nonlinear:true, costCurve:1.45, benefitSat:1.6,
   shocks:true, shockRate:2.0, shockSeverity:0.8, shockRadius:120, shockDuration:8,
   sexual:true, sexRate:0.35, mateTol:0.18, recombMix:0.65, sexCost:8,
+  phylo:true, phyloFork:0.16, phyloTop:8,
+  metaOrgs:true, metaMinPop:80, metaRange:420, metaBenefit:0.065, metaPull:0.55,
 };
 
 let matrix=[], agents=[], food=[];
 let W=0,H=0,DPR=1,paused=false,nextId=0,searching=false;
 let shocks=[], shockAcc=0, sexualBirths=0, cloneBirths=0;
+let combatKills=0, combatEnergy=0, combatEvents=[];
+let metaNodes=[], metaLinks=[], metaComponents=[], metaSpeciesInfo=[], metaStats={bodies:0,links:0,power:0};
+let simTick=0, lineages=[], rootLineBySpecies=[], nextLineageId=0;
+const MAX_LINEAGES=900;
 const SHOCK_TYPES=['drought','cold','toxin','radiation'];
 const SHOCK_LABEL={drought:'Dürre',cold:'Kälte',toxin:'Toxin',radiation:'Strahlung'};
 
@@ -292,6 +372,16 @@ function hexToRgb(h){ const n=parseInt(h.slice(1),16); return [(n>>16)&255,(n>>8
 function rand(a,b){ return a+Math.random()*(b-a); }
 function clamp(v,lo,hi){ return v<lo?lo:(v>hi?hi:v); }
 function yieldUI(){ return new Promise(r=>setTimeout(r,0)); }
+function satTrait(v,max){
+  if(!cfg.nonlinear) return v;
+  const k=Math.max(0.001,cfg.benefitSat), x=clamp(v/Math.max(1e-9,max),0,1);
+  return max*(1-Math.exp(-k*x))/(1-Math.exp(-k));
+}
+function convexCost(v,max){
+  if(!cfg.nonlinear) return v;
+  const x=clamp(v/Math.max(1e-9,max),0,3);
+  return max*Math.pow(x,Math.max(1,cfg.costCurve));
+}
 
 /* ---------- Matrix ---------- */
 function defaultMatrix(n){ const m=[];
@@ -308,15 +398,53 @@ function randomizeMatrix(){ const n=cfg.numSpecies; matrix=[];
 function resizeMatrix(n){ const old=matrix,m=[];
   for(let i=0;i<n;i++){ m[i]=[]; for(let j=0;j<n;j++) m[i][j]=(old[i]&&old[i][j]!==undefined)?old[i][j]:rand(-0.5,0.5);} matrix=m; renderMatrix(); }
 
-/* ---------- Zellen (Gene: tag, perc, spd, mr=Mutationsrate) ---------- */
-function newAgent(){
+/* ---------- Linien / Phylogenie ---------- */
+function createLineage(parent, mate, proto, reason){
+  if(nextLineageId>=MAX_LINEAGES){
+    if(parent!=null && lineages[parent]) return parent;
+    const root=rootLineBySpecies[proto.s]; return root!=null?root:0;
+  }
+  const id=nextLineageId++;
+  const p=parent!=null?lineages[parent]:null;
+  lineages[id]={ id, parent:parent==null?null:parent, mate:mate==null?null:mate,
+    s:proto.s||0, tag:proto.tag||0, hard:proto.hard||0, perc:proto.perc||0, spd:proto.spd||0,
+    born:simTick, depth:p?p.depth+1:0, count:0, births:0, lastSeen:simTick, reason:reason||'Mutation' };
+  return id;
+}
+function initLineages(n){
+  lineages=[]; rootLineBySpecies=[]; nextLineageId=0;
+  for(let s=0;s<n;s++){
+    rootLineBySpecies[s]=createLineage(null,null,{s,tag:(s+0.5)/Math.max(1,n),hard:0.5,perc:cfg.perception*0.75,spd:cfg.maxSpeed*0.75},'Startart');
+  }
+}
+function geneticDistance(a,b){
+  if(!a||!b) return 1;
+  return (Math.abs(a.tag-b.tag)+Math.abs(a.hard-b.hard)+Math.abs(a.spd-b.spd)/Math.max(0.1,cfg.maxSpeed)+Math.abs(a.perc-b.perc)/Math.max(1,cfg.perception))*0.25;
+}
+function assignChildLineage(child,p,mate){
+  let fork=geneticDistance(child,p)>cfg.phyloFork;
+  if(mate && mate.lin!==p.lin){
+    const hybridDist=Math.min(geneticDistance(child,p),geneticDistance(child,mate));
+    if(hybridDist>cfg.phyloFork*0.55 || Math.random()<0.35) fork=true;
+  }
+  if(fork){ child.lin=createLineage(p.lin,mate?mate.lin:null,child,mate?'Rekombination':'Mutation'); }
+  else child.lin=p.lin;
+  const l=lineages[child.lin]; if(l) l.births++;
+}
+
+/* ---------- Zellen (Gene: tag, perc, spd, hard, lin, mr=Mutationsrate) ---------- */
+function newAgent(species=null){
   const a=rand(0,Math.PI*2);
   const perc=clamp(cfg.perception*rand(0.55,1.0),6,cfg.perception);
   const spd =clamp(cfg.maxSpeed *rand(0.55,1.0),0.3,cfg.maxSpeed);
+  const s=species==null?((Math.random()*cfg.numSpecies)|0):species;
+  const tag=Math.random(), hard=Math.random();
+  let lin=rootLineBySpecies[s];
+  if(lin==null) lin=createLineage(null,null,{s,tag,hard,perc,spd},'Startart');
   return { id:nextId++, x:Math.random()*W, y:Math.random()*H,
-    vx:Math.cos(a)*spd, vy:Math.sin(a)*spd, s:(Math.random()*cfg.numSpecies)|0,
-    perc, spd, tag:Math.random(), hard:Math.random(), mr:rand(0.6,1.4),   // GENE (hard = Umweltpassung, mr = vererbbare Mutationsrate)
-    energy:START_ENERGY, gen:0, ax:0, ay:0, bonds:[], bodySize:1, effSpd:spd, _v:0 };
+    vx:Math.cos(a)*spd, vy:Math.sin(a)*spd, s,
+    perc, spd, tag, hard, lin, mr:rand(0.6,1.4),   // GENE (hard = Umweltpassung, lin = Abstammungslinie)
+    energy:START_ENERGY, gen:0, ax:0, ay:0, bonds:[], bodySize:1, effSpd:spd, _v:0, coop:0, dead:false, kills:0 };
 }
 function recombineTrait(p,mate,key,mut,lo,hi,mode,mutScale){
   let base=p[key];
@@ -345,12 +473,18 @@ function makeChild(p,mate=null){
     cmr=clamp((pick*(1-cfg.recombMix)+blend*cfg.recombMix)*(1+rand(-1,1)*cfg.mutMeta),0.05,4);
   }
   const a=rand(0,Math.PI*2);
-  return { id:nextId++, x:p.x+rand(-3,3), y:p.y+rand(-3,3),
+  const c={ id:nextId++, x:p.x+rand(-3,3), y:p.y+rand(-3,3),
     vx:Math.cos(a)*spd*0.4, vy:Math.sin(a)*spd*0.4, s:(mate&&Math.random()<0.5)?mate.s:p.s,
     perc, spd, tag, hard, mr:cmr, energy:p.energy, gen:Math.max(p.gen,mate?mate.gen:p.gen)+1,
-    ax:0, ay:0, bonds:[], bodySize:1, effSpd:spd, _v:0, shockLoad:0, shockMut:0 };
+    ax:0, ay:0, bonds:[], bodySize:1, effSpd:spd, _v:0, shockLoad:0, shockMut:0,
+    coop:0, dead:false, kills:0, lin:p.lin };
+  assignChildLineage(c,p,mate);
+  return c;
 }
-function spawnAgents(n){ agents=[]; for(let i=0;i<n;i++) agents.push(newAgent()); }
+function spawnAgents(n){
+  agents=[]; initLineages(cfg.numSpecies);
+  for(let i=0;i<n;i++) agents.push(newAgent());
+}
 function removeBond(x,y){ const b=x.bonds; for(let i=0;i<b.length;i++) if(b[i].o===y){ b.splice(i,1); return; } }
 function detachAll(a){ for(const e of a.bonds) removeBond(e.o,a); a.bonds.length=0; }
 function bonded(a,b){ for(const e of a.bonds) if(e.o===b) return true; return false; }
@@ -358,8 +492,8 @@ function setAgentCount(n){
   if(n<agents.length){ for(let i=n;i<agents.length;i++) detachAll(agents[i]); agents.length=n; }
   else while(agents.length<n) agents.push(newAgent());
 }
-function setSpeciesCount(n){ cfg.numSpecies=n; resizeMatrix(n);
-  for(const a of agents){ if(a.s>=n) a.s=(Math.random()*n)|0; a.bonds.length=0; } }
+function setSpeciesCount(n){ cfg.numSpecies=n; resizeMatrix(n); initLineages(n);
+  for(const a of agents){ if(a.s>=n) a.s=(Math.random()*n)|0; a.lin=rootLineBySpecies[a.s]; a.bonds.length=0; } }
 
 function viableMate(a,b){
   return b && b!==a && b.energy>START_ENERGY*0.65 &&
@@ -371,7 +505,7 @@ function findMate(a){
   for(const e of a.bonds) if(viableMate(a,e.o)) pool.push(e.o); // Partner im Körper bevorzugen
   if(pool.length) return pool[(Math.random()*pool.length)|0];
 
-  const r=Math.min(a.perc,cfg.perception)*0.75, r2=r*r;
+  const r=Math.min(satTrait(a.perc,cfg.perception),cfg.perception)*0.75, r2=r*r;
   let cx=Math.floor(a.x/cellSize); if(cx<0)cx=0;else if(cx>=cols)cx=cols-1;
   let cy=Math.floor(a.y/cellSize); if(cy<0)cy=0;else if(cy>=rows)cy=rows-1;
   const seen=new Set();
@@ -415,8 +549,10 @@ function labelBodies(){
     const a=agents[k]; if(a._v===visitTok) continue;
     const comp=[a]; let qi=0; a._v=visitTok;
     while(qi<comp.length){ const x=comp[qi++]; for(const e of x.bonds){ if(e.o._v!==visitTok){ e.o._v=visitTok; comp.push(e.o); } } }
-    const sz=comp.length, pen=1+cfg.sizePenalty*(sz-1);
-    for(const x of comp){ x.bodySize=sz; x.effSpd=x.spd/pen; }
+    const sz=comp.length;
+    const burden=cfg.nonlinear?Math.pow(Math.max(0,sz-1),Math.max(1,cfg.costCurve)):(sz-1);
+    const pen=1+cfg.sizePenalty*burden;
+    for(const x of comp){ x.bodySize=sz; x.effSpd=satTrait(x.spd,cfg.maxSpeed)/pen; }
   }
 }
 
@@ -430,24 +566,27 @@ function steer(dx,dy,vx,vy,maxSp,out){
 }
 
 /* ---------- Umweltschocks ---------- */
-function resetRunStats(){ shocks=[]; shockAcc=0; sexualBirths=0; cloneBirths=0; }
+function resetRunStats(){
+  shocks=[]; shockAcc=0; sexualBirths=0; cloneBirths=0; combatKills=0; combatEnergy=0; combatEvents=[]; simTick=0;
+  metaNodes=[]; metaLinks=[]; metaComponents=[]; metaSpeciesInfo=[]; metaStats={bodies:0,links:0,power:0};
+}
 function spawnShock(type=null){
   if(!type) type=SHOCK_TYPES[(Math.random()*SHOCK_TYPES.length)|0];
-  const maxT=Math.max(1,Math.round(cfg.shockDuration*60));
+  const maxT=Math.max(0.25,cfg.shockDuration); // Sekunden, nicht Frames
   shocks.push({type, x:Math.random()*W, y:Math.random()*H,
     r:cfg.shockRadius*rand(0.75,1.25), t:maxT, maxT, target:Math.random()});
   if(shocks.length>8) shocks.shift();
 }
-function updateEnvironmentalShocks(){
-  for(const s of shocks) s.t--;
+function updateEnvironmentalShocks(dtSec=1/60){
+  for(const s of shocks) s.t-=dtSec;
   let w=0; for(const s of shocks) if(s.t>0) shocks[w++]=s; shocks.length=w;
   if(cfg.shocks && cfg.shockRate>0){
-    shockAcc+=cfg.shockRate/3600; // Regler = erwartete Ereignisse pro Minute bei ~60 fps
+    shockAcc+=cfg.shockRate*dtSec/60; // Regler = erwartete Ereignisse pro Real-/Simulationsminute, unabhängig von fps
     while(shockAcc>=1){ spawnShock(); shockAcc-=1; }
-    if(Math.random()<cfg.shockRate/3600) spawnShock();
   }
 }
-function applyShockEffects(){
+function applyShockEffects(dtSec=1/60){
+  const frameScale=clamp(dtSec*60,0.25,3);
   for(const a of agents){ a.shockLoad=0; a.shockMut=0; }
   if(shocks.length===0) return;
   for(const s of shocks){
@@ -456,8 +595,8 @@ function applyShockEffects(){
       const dx=wrap(f.x-s.x,W), dy=wrap(f.y-s.y,H), d2=dx*dx+dy*dy;
       if(d2<s.r*s.r){
         const fade=(1-Math.sqrt(d2)/s.r)*pulse*cfg.shockSeverity;
-        if(s.type==='drought' && Math.random()<0.10*fade) f.dead=true;
-        if(s.type==='toxin' && Math.random()<0.035*fade) f.dead=true;
+        if(s.type==='drought' && Math.random()<Math.min(1,0.10*fade*frameScale)) f.dead=true;
+        if(s.type==='toxin' && Math.random()<Math.min(1,0.035*fade*frameScale)) f.dead=true;
       }
     }
     for(const a of agents){
@@ -465,34 +604,116 @@ function applyShockEffects(){
       if(d>=s.r) continue;
       const mismatch=Math.abs(a.hard-s.target);       // Umwelt-Gen: Nähe zum Zielwert schützt
       const vuln=0.25+0.75*mismatch;
-      const load=(1-d/s.r)*pulse*cfg.shockSeverity*vuln;
+      const metaShield=clamp(1-cfg.metaBenefit*1.8*(a.metaPower||0),0.45,1);
+      const load=(1-d/s.r)*pulse*cfg.shockSeverity*vuln*metaShield;
       a.shockLoad=Math.max(a.shockLoad,load);
       if(s.type==='cold'){
         a.effSpd*=clamp(1-0.55*load,0.12,1);
-        a.energy-=0.010*load;
+        a.energy-=0.010*load*frameScale;
       } else if(s.type==='drought'){
         a.effSpd*=clamp(1-0.25*load,0.25,1);
-        a.energy-=0.018*load;
+        a.energy-=0.018*load*frameScale;
       } else if(s.type==='toxin'){
-        a.energy-=0.045*load;
+        a.energy-=0.045*load*frameScale;
       } else if(s.type==='radiation'){
-        a.energy-=0.018*load;
+        a.energy-=0.018*load*frameScale;
         a.shockMut+=0.9*load;
       }
     }
   }
 }
 
+
+/* ---------- Meta-Organismen: Art-Schwerpunkte und Meta-Verbindungen ---------- */
+function wrappedMeanAngle(sinSum,cosSum,size){
+  if(Math.hypot(sinSum,cosSum)<1e-6) return 0;
+  let ang=Math.atan2(sinSum,cosSum); if(ang<0) ang+=Math.PI*2;
+  return ang/(Math.PI*2)*size;
+}
+function updateMetaOrganisms(){
+  metaNodes=new Array(cfg.numSpecies).fill(null);
+  metaLinks=[]; metaComponents=[]; metaSpeciesInfo=new Array(cfg.numSpecies).fill(null);
+  metaStats={bodies:0,links:0,power:0};
+  for(const a of agents){ a.metaPower=0; a.metaComp=-1; }
+  if(!cfg.metaOrgs || agents.length===0 || cfg.numSpecies<2) return;
+
+  const stats=[];
+  for(let s=0;s<cfg.numSpecies;s++) stats[s]={n:0,sx:0,cx:0,sy:0,cy:0,energy:0,hard:0,tag:0};
+  for(const a of agents){
+    if(a.dead) continue;
+    const st=stats[a.s]; if(!st) continue;
+    st.n++; st.energy+=a.energy; st.hard+=a.hard||0; st.tag+=a.tag||0;
+    const ax=a.x/W*Math.PI*2, ay=a.y/H*Math.PI*2;
+    st.sx+=Math.sin(ax); st.cx+=Math.cos(ax); st.sy+=Math.sin(ay); st.cy+=Math.cos(ay);
+  }
+  const active=[];
+  for(let s=0;s<cfg.numSpecies;s++){
+    const st=stats[s];
+    if(!st || st.n<cfg.metaMinPop) continue;
+    const node={s,n:st.n,x:wrappedMeanAngle(st.sx,st.cx,W),y:wrappedMeanAngle(st.sy,st.cy,H),
+      energy:st.energy/st.n,hard:st.hard/st.n,tag:st.tag/st.n,degree:0,power:0};
+    metaNodes[s]=node; active.push(s);
+  }
+  if(active.length<2) return;
+
+  const parent=new Array(cfg.numSpecies).fill(0).map((_,i)=>i);
+  function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+  function union(a,b){ a=find(a); b=find(b); if(a!==b) parent[b]=a; }
+
+  for(let ii=0;ii<active.length;ii++) for(let jj=ii+1;jj<active.length;jj++){
+    const a=metaNodes[active[ii]], b=metaNodes[active[jj]];
+    const affinity=(Math.max(0,matrix[a.s][b.s]||0)+Math.max(0,matrix[b.s][a.s]||0))*0.5;
+    if(affinity<=0.04) continue;
+    const dx=wrap(b.x-a.x,W), dy=wrap(b.y-a.y,H), dist=Math.hypot(dx,dy);
+    if(dist>cfg.metaRange) continue;
+    const proximity=1-dist/Math.max(1,cfg.metaRange);
+    const popFactor=clamp(Math.sqrt(Math.min(a.n,b.n)/Math.max(1,cfg.metaMinPop)),0.6,2.2);
+    const complement=0.65+0.35*Math.abs(a.hard-b.hard);
+    const strength=affinity*proximity*popFactor*complement;
+    if(strength<=0.015) continue;
+    metaLinks.push({a:a.s,b:b.s,strength,dist,dx,dy});
+    a.degree++; b.degree++; a.power+=strength; b.power+=strength;
+    union(a.s,b.s);
+  }
+  if(metaLinks.length===0) return;
+
+  const groups=new Map();
+  for(const sp of active){
+    const n=metaNodes[sp]; if(!n || n.degree<=0) continue;
+    const r=find(sp); if(!groups.has(r)) groups.set(r,{species:[],links:[],power:0});
+    groups.get(r).species.push(sp);
+  }
+  for(const l of metaLinks){ const r=find(l.a); if(groups.has(r)){ groups.get(r).links.push(l); groups.get(r).power+=l.strength; } }
+  let compId=0, pSum=0;
+  for(const g of groups.values()){
+    if(g.species.length<2 || g.links.length===0) continue;
+    const avg=g.power/g.links.length;
+    const power=clamp(avg*Math.sqrt(g.species.length),0,3);
+    const comp={id:compId++, species:g.species, links:g.links, power};
+    metaComponents.push(comp); pSum+=power;
+    for(const sp of g.species){
+      metaSpeciesInfo[sp]={compId:comp.id,size:g.species.length,power,links:g.links.length};
+      if(metaNodes[sp]) metaNodes[sp].power=power;
+    }
+  }
+  metaStats={bodies:metaComponents.length,links:metaLinks.length,power:metaComponents.length?pSum/metaComponents.length:0};
+  for(const a of agents){ const info=metaSpeciesInfo[a.s]; if(info){ a.metaPower=info.power; a.metaComp=info.compId; } }
+}
+
 /* ---------- Ein Schritt ---------- */
-function step(){
+function step(dtSec=1/60){
+  simTick++;
   buildGrids();
   labelBodies();     // Körpergröße -> effektives Tempo (Selektionsdruck)
-  updateEnvironmentalShocks();
-  applyShockEffects(); // lokale Schocks: Energie, Nahrung, Tempo, Mutationsrauschen
-  computeForces();   // Nachbarn, Chemotaxis, Bindungen knüpfen, Moral
+  updateMetaOrganisms(); // Arten-Schwerpunkte -> Meta-Organismen und globale Vorteile
+  updateEnvironmentalShocks(dtSec);
+  applyShockEffects(dtSec); // lokale Schocks: Energie, Nahrung, Tempo, Mutationsrauschen
+  computeForces();   // Nachbarn, Chemotaxis, Bindungen knüpfen, Moral und Kooperationsnutzen
   applyBonds();      // Federkräfte, Risse, Energie teilen
   integrate();
-  lifeCycle();       // fressen, Stoffwechsel(+Bindungskosten), Teilung, Tod, Rekombination
+  resolveCombat(dtSec); // negative Matrixwerte: Kontaktkampf + Fraßgewinn
+  buildGrids();      // Positionen und Kampf-Tote für Fressen/Teilung aktualisieren
+  lifeCycle();       // Nahrung, Symbiose, Stoffwechsel, Teilung, Tod, Rekombination
 }
 
 function computeForces(){
@@ -502,12 +723,13 @@ function computeForces(){
   const gain=cfg.quorum?cfg.moraleGain:0;
   for(let k=0;k<agents.length;k++){
     const a=agents[k];
-    const perc2=a.perc*a.perc;
+    const perc=satTrait(a.perc,cfg.perception);
+    const perc2=perc*perc;
     let cx=Math.floor(a.x/cellSize); if(cx<0)cx=0;else if(cx>=cols)cx=cols-1;
     let cy=Math.floor(a.y/cellSize); if(cy<0)cy=0;else if(cy>=rows)cy=rows-1;
 
     let sepX=0,sepY=0, aliX=0,aliY=0,aliN=0, cohX=0,cohY=0,cohN=0;
-    let attX=0,attY=0, repX=0,repY=0, allies=0, rivals=0;
+    let attX=0,attY=0, repX=0,repY=0, metaX=0,metaY=0, allies=0, rivals=0, coop=0;
     let foodDX=0,foodDY=0,foodBest=1e9;     // nächste Nahrung (Chemotaxis)
 
     const seen=new Set();
@@ -537,14 +759,28 @@ function computeForces(){
         if(d2<sep2){ const push=1-d/cfg.separation; sepX-=ux*push; sepY-=uy*push; }
         if(same){ aliX+=b.vx; aliY+=b.vy; aliN++; cohX+=dx; cohY+=dy; cohN++; }
         const m=matrix[a.s][b.s];
-        if(m>0){ const f=1-d/a.perc; attX+=ux*m*f; attY+=uy*m*f; }
-        else if(m<0){ const f=1-d/a.perc; repX+=ux*m*f; repY+=uy*m*f; }
+        if(m>0){ const f=1-d/perc; attX+=ux*m*f; attY+=uy*m*f; coop+=m*f; }
+        else if(m<0){ const f=1-d/perc; repX+=ux*m*f; repY+=uy*m*f; }
       }
       // Chemotaxis: nächste Nahrung in dieser Zelle
       if(cfg.wFood>0){ const fb=foodGrid[ci];
         for(let bi=0;bi<fb.length;bi++){ const f=food[fb[bi]]; if(f.dead) continue;
           let dx=wrap(f.x-a.x,W), dy=wrap(f.y-a.y,H); const d2=dx*dx+dy*dy;
           if(d2<perc2 && d2<foodBest){ foodBest=d2; foodDX=dx; foodDY=dy; } } }
+    }
+
+    // Meta-Organismus: Arten-Schwerpunkte ziehen kooperierende Arten als übergeordnetes Gefüge zusammen.
+    if(cfg.metaPull>0 && (a.metaPower||0)>0){
+      for(const l of metaLinks){
+        let other=-1, strength=0;
+        if(l.a===a.s){ other=l.b; strength=l.strength; } else if(l.b===a.s){ other=l.a; strength=l.strength; }
+        if(other<0) continue;
+        const n=metaNodes[other]; if(!n) continue;
+        const dx=wrap(n.x-a.x,W), dy=wrap(n.y-a.y,H), d=Math.hypot(dx,dy)||1;
+        if(d<cfg.separation*1.5) continue;
+        const pull=strength*clamp(1-d/Math.max(1,cfg.metaRange),0.08,1);
+        metaX+=(dx/d)*pull; metaY+=(dy/d)*pull;
+      }
     }
 
     // Mehr-Arten-Regel: Über-/Unterzahl moduliert Abstoßung (Angriff vs. Flucht)
@@ -557,9 +793,10 @@ function computeForces(){
     if(aliN>0){ steer(aliX/aliN,aliY/aliN,a.vx,a.vy,a.effSpd,S); fx+=S.x*cfg.wAli; fy+=S.y*cfg.wAli; }
     if(cohN>0){ steer(cohX/cohN,cohY/cohN,a.vx,a.vy,a.effSpd,S); fx+=S.x*cfg.wCoh; fy+=S.y*cfg.wCoh; }
     if(foodBest<1e9){ steer(foodDX,foodDY,a.vx,a.vy,a.effSpd,S); fx+=S.x*cfg.wFood; fy+=S.y*cfg.wFood; }
+    if(metaX||metaY){ steer(metaX,metaY,a.vx,a.vy,a.effSpd,S); fx+=S.x*cfg.metaPull*(a.metaPower||0); fy+=S.y*cfg.metaPull*(a.metaPower||0); }
     const im=Math.hypot(intX,intY);
     if(im>0){ const cap=Math.min(im,cfg.maxForce*2); fx+=(intX/im)*cap*cfg.wInt; fy+=(intY/im)*cap*cfg.wInt; }
-    a.ax=fx; a.ay=fy;
+    a.ax=fx; a.ay=fy; a.coop=coop;
   }
 }
 
@@ -593,11 +830,54 @@ function integrate(){
   }
 }
 
+function resolveCombat(dtSec=1/60){
+  if(!cfg.combat || cfg.predation<=0 || agents.length<2) return;
+  const frameScale=clamp(dtSec*60,0.25,3);
+  const r=Math.max(EAT_RADIUS*2.4,cfg.separation*0.75), r2=r*r;
+  buildGrids();
+  function attack(att,def,hostility,contact){
+    if(hostility<=0 || !att || !def || att.dead || def.dead) return;
+    const pack=cfg.quorum?clamp((att.bodySize+1)/(def.bodySize+1),0.45,1.9):1;
+    const metaPack=clamp(1+cfg.metaBenefit*2.2*((att.metaPower||0)-(def.metaPower||0)),0.65,1.65);
+    const damage=cfg.predation*hostility*contact*pack*metaPack*frameScale;
+    if(damage<=0) return;
+    const before=def.energy;
+    def.energy-=damage;
+    const gain=damage*cfg.meatGain;
+    att.energy=Math.min(MAX_ENERGY,att.energy+gain);
+    combatEnergy+=gain;
+    if(def.energy<=0 && !def.dead){
+      def.dead=true; detachAll(def); combatKills++; att.kills=(att.kills||0)+1;
+      const bonus=Math.min(18,Math.max(0,before)*cfg.meatGain);
+      att.energy=Math.min(MAX_ENERGY,att.energy+bonus); combatEnergy+=bonus;
+      combatEvents.push({x:def.x,y:def.y,t:18,maxT:18}); if(combatEvents.length>48) combatEvents.shift();
+    }
+  }
+  for(let i=0;i<agents.length;i++){
+    const a=agents[i]; if(a.dead) continue;
+    let cx=Math.floor(a.x/cellSize); if(cx<0)cx=0;else if(cx>=cols)cx=cols-1;
+    let cy=Math.floor(a.y/cellSize); if(cy<0)cy=0;else if(cy>=rows)cy=rows-1;
+    const seen=new Set();
+    for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++){
+      const ci=((cy+oy+rows)%rows)*cols+(cx+ox+cols)%cols; if(seen.has(ci)) continue; seen.add(ci);
+      for(const j of grid[ci]){ if(j<=i) continue;
+        const b=agents[j]; if(!b || b.dead || bonded(a,b)) continue;
+        const dx=wrap(b.x-a.x,W), dy=wrap(b.y-a.y,H), d2=dx*dx+dy*dy;
+        if(d2>=r2 || d2===0) continue;
+        const contact=1-Math.sqrt(d2)/r;
+        attack(a,b,Math.max(0,-matrix[a.s][b.s]),contact);
+        attack(b,a,Math.max(0,-matrix[b.s][a.s]),contact);
+      }
+    }
+  }
+}
+
 function lifeCycle(){
   const eat2=EAT_RADIUS*EAT_RADIUS;
   const births=[]; let projected=agents.length, w=0;
   for(let k=0;k<agents.length;k++){
     const a=agents[k];
+    if(a.dead){ detachAll(a); continue; }
     let cx=Math.floor(a.x/cellSize); if(cx<0)cx=0;else if(cx>=cols)cx=cols-1;
     let cy=Math.floor(a.y/cellSize); if(cy<0)cy=0;else if(cy>=rows)cy=rows-1;
     const seen=new Set();
@@ -609,8 +889,20 @@ function lifeCycle(){
         const dx=wrap(f.x-a.x,W), dy=wrap(f.y-a.y,H);
         if(dx*dx+dy*dy<eat2){ a.energy=Math.min(MAX_ENERGY,a.energy+cfg.foodEnergy); f.dead=true; } }
     }
-    // Stoffwechsel: leben + schnell/weitsichtig + jede Bindung kostet
-    a.energy-=cfg.metabolism + 0.010*Math.hypot(a.vx,a.vy) + 0.0006*a.perc + cfg.bondCost*a.bonds.length;
+    // Positive Interaktion: Symbiose/Kooperation gibt direkt nutzbare Energie, aber sättigend pro Schritt.
+    if(cfg.coopBenefit>0 && a.coop>0){
+      a.energy=Math.min(MAX_ENERGY,a.energy+Math.min(0.18,cfg.coopBenefit*a.coop));
+    }
+    // Meta-Organismus: geteilte Nischen, Arbeitsteilung und Pufferung liefern zusätzliche Synergie.
+    const metaPower=a.metaPower||0;
+    if(cfg.metaOrgs && cfg.metaBenefit>0 && metaPower>0){
+      a.energy=Math.min(MAX_ENERGY,a.energy+Math.min(0.20,cfg.metaBenefit*metaPower));
+    }
+    // Stoffwechsel: Leben + konvexe Trait-Kosten + jede Bindung kostet; Meta-Organisation reduziert Redundanzkosten.
+    const metaDiscount=clamp(1-cfg.metaBenefit*1.25*metaPower,0.55,1);
+    const speedCost=0.010*convexCost(Math.hypot(a.vx,a.vy),cfg.maxSpeed);
+    const percCost =0.0006*convexCost(a.perc,cfg.perception);
+    a.energy-=cfg.metabolism*metaDiscount + (speedCost+percCost)*clamp(1-cfg.metaBenefit*0.7*metaPower,0.70,1) + cfg.bondCost*a.bonds.length;
     if(a.energy<=0){ detachAll(a); continue; }
     // Teilung bei Schwelle; optional mit Partner -> Rekombination, sonst Klon + Mutation
     if(a.energy>=REPRO_AT && projected<POP_CAP){
@@ -636,13 +928,17 @@ function lifeCycle(){
   compactFood(); regrowFood();
 }
 
-/* ---------- Metriken: Diversität (Tag-Entropie) + Komplexität ---------- */
+/* ---------- Metriken: Diversität (Tag+Umwelt-Entropie) + Komplexität ---------- */
 function computeMetrics(){
   const N=agents.length; if(N===0) return {div:0,cx:0,mixed:0,bodies:0,maxSize:0};
-  // Diversität = normierte Shannon-Entropie der Tag-Verteilung
-  const TB=10, tb=new Array(TB).fill(0);
-  for(const a of agents){ let bi=(a.tag*TB)|0; if(bi>=TB)bi=TB-1; if(bi<0)bi=0; tb[bi]++; }
-  let Hd=0; for(const c of tb) if(c>0){ const p=c/N; Hd-=p*Math.log(p); } Hd/=Math.log(TB);
+  // Diversität = kombinierte Entropie aus Adhäsions-Tag und Umwelt-Gen
+  const TB=10, tb=new Array(TB).fill(0), hb=new Array(TB).fill(0);
+  for(const a of agents){
+    let bi=(a.tag*TB)|0; if(bi>=TB)bi=TB-1; if(bi<0)bi=0; tb[bi]++;
+    let hi=(a.hard*TB)|0; if(hi>=TB)hi=TB-1; if(hi<0)hi=0; hb[hi]++;
+  }
+  function entropyNorm(arr){ let h=0; for(const c of arr) if(c>0){ const p=c/N; h-=p*Math.log(p); } return h/Math.log(TB); }
+  const Hd=(entropyNorm(tb)+entropyNorm(hb))*0.5;
   // Körper: Größen + Artenmischung
   visitTok++; let bondedCells=0, mixedCells=0; const sizes=[];
   for(const a of agents){ if(a._v===visitTok) continue;
@@ -675,12 +971,35 @@ function drawShocks(){
   }
   ctx.restore();
 }
+
+function drawMetaOrganisms(){
+  if(!cfg.metaOrgs || metaLinks.length===0) return;
+  ctx.save(); ctx.globalCompositeOperation='screen';
+  for(const l of metaLinks){
+    const a=metaNodes[l.a], b=metaNodes[l.b]; if(!a||!b) continue;
+    const ca=SPECIES_RGB[a.s%SPECIES_RGB.length], cb=SPECIES_RGB[b.s%SPECIES_RGB.length];
+    const dx=wrap(b.x-a.x,W), dy=wrap(b.y-a.y,H), alpha=clamp(0.12+0.36*l.strength,0.12,0.56);
+    ctx.strokeStyle=`rgba(${((ca[0]+cb[0])*0.5)|0},${((ca[1]+cb[1])*0.5)|0},${((ca[2]+cb[2])*0.5)|0},${alpha})`;
+    ctx.lineWidth=1.2+3.2*clamp(l.strength,0,1);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(a.x+dx,a.y+dy); ctx.stroke();
+  }
+  for(const n of metaNodes){ if(!n || n.degree<=0) continue;
+    const c=SPECIES_RGB[n.s%SPECIES_RGB.length], r=5+Math.min(16,Math.sqrt(n.n)*0.32)+3*(n.power||0);
+    ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},0.16)`;
+    ctx.strokeStyle=`rgba(${c[0]},${c[1]},${c[2]},0.55)`; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.arc(n.x,n.y,r,0,6.2832); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},0.85)`;
+    ctx.beginPath(); ctx.arc(n.x,n.y,2.4+Math.min(4,n.power||0),0,6.2832); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function render(){
   const alpha=0.5-cfg.trailLen*0.485;
   ctx.globalCompositeOperation='source-over'; ctx.fillStyle=`rgba(8,9,13,${alpha})`; ctx.fillRect(0,0,W,H);
   ctx.fillStyle='rgba(111,174,114,0.5)';
   for(let k=0;k<food.length;k++){ const f=food[k]; ctx.beginPath(); ctx.arc(f.x,f.y,1.3,0,6.2832); ctx.fill(); }
-  drawShocks();
+  drawShocks(); drawMetaOrganisms();
   ctx.globalCompositeOperation='lighter';
   if(cfg.bondLines){ ctx.lineWidth=1;
     for(let k=0;k<agents.length;k++){ const a=agents[k]; if(a.bonds.length===0) continue;
@@ -717,15 +1036,69 @@ function drawGraphs(){
   plot(g2ctx,g2.width,g2.height,cxHist,'#ff9f45',1);    // Komplexität (orange)
 }
 
+
+/* ---------- Phylogenie dominanter Linien ---------- */
+const phyloCanvas=document.getElementById('phylo'), pctx=phyloCanvas?phyloCanvas.getContext('2d'):null;
+function updateLineageCounts(){
+  for(const l of lineages) if(l){ l.count=0; }
+  for(const a of agents){ const l=lineages[a.lin]; if(l){ l.count++; l.lastSeen=simTick; l.s=a.s; } }
+}
+function renderPhylogeny(){
+  const box=document.getElementById('phyloBox'), info=document.getElementById('phyloInfo');
+  if(!pctx || !box || !info) return;
+  box.style.display=cfg.phylo?'block':'none';
+  if(!cfg.phylo) return;
+  updateLineageCounts();
+  const Wp=phyloCanvas.width, Hp=phyloCanvas.height, N=Math.max(1,agents.length);
+  pctx.clearRect(0,0,Wp,Hp);
+  pctx.fillStyle='rgba(8,9,13,.18)'; pctx.fillRect(0,0,Wp,Hp);
+  const living=lineages.filter(l=>l&&l.count>0).sort((a,b)=>b.count-a.count);
+  const top=living.slice(0,Math.max(3,Math.round(cfg.phyloTop||8))).map(l=>l.id);
+  if(top.length===0){ info.textContent='keine lebenden Linien'; return; }
+  const keep=new Set();
+  function addAnc(id,depth=0){ const l=lineages[id]; if(!l||depth>22||keep.has(id)) return; keep.add(id); addAnc(l.parent,depth+1); addAnc(l.mate,depth+1); }
+  for(const id of top) addAnc(id);
+  const ids=[...keep].filter(id=>lineages[id]);
+  const children={}; for(const id of ids) children[id]=[];
+  for(const id of ids){ const l=lineages[id]; for(const p of [l.parent,l.mate]) if(p!=null && keep.has(p)) children[p].push(id); }
+  const maxDepth=Math.max(1,...ids.map(id=>lineages[id].depth||0));
+  const xOf=id=>10+((lineages[id].depth||0)/maxDepth)*(Wp-76);
+  const yMap={};
+  top.forEach((id,i)=>{ yMap[id]=top.length===1?Hp*0.5:18+i*(Hp-36)/(top.length-1); });
+  function yOf(id){
+    if(yMap[id]!=null) return yMap[id];
+    const cs=(children[id]||[]).filter(c=>keep.has(c));
+    yMap[id]=cs.length?cs.reduce((a,c)=>a+yOf(c),0)/cs.length:Hp*0.5;
+    return yMap[id];
+  }
+  ids.forEach(yOf); pctx.lineWidth=1;
+  for(const id of ids){ const l=lineages[id], x=xOf(id), y=yOf(id);
+    for(const [p,dashed] of [[l.parent,false],[l.mate,true]]) if(p!=null && keep.has(p)){
+      pctx.setLineDash(dashed?[3,3]:[]); pctx.strokeStyle=dashed?'rgba(216,221,232,.20)':'rgba(216,221,232,.32)';
+      pctx.beginPath(); pctx.moveTo(xOf(p),yOf(p)); pctx.lineTo(x,y); pctx.stroke();
+    }
+  }
+  pctx.setLineDash([]); const topSet=new Set(top);
+  for(const id of ids){ const l=lineages[id], c=SPECIES_RGB[l.s%SPECIES_RGB.length], frac=l.count/N;
+    const r=topSet.has(id)?Math.max(3,Math.min(11,3+Math.sqrt(frac)*18)):2.3;
+    pctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${topSet.has(id)?0.92:0.55})`;
+    pctx.beginPath(); pctx.arc(xOf(id),yOf(id),r,0,6.2832); pctx.fill();
+    if(topSet.has(id)){ pctx.fillStyle='rgba(216,221,232,.82)'; pctx.font='10px ui-monospace, monospace'; pctx.fillText(`S${l.s+1} L${id} ${l.count}`,Math.min(Wp-66,xOf(id)+r+3),yOf(id)+3); }
+  }
+  const dom=living[0];
+  info.textContent=`${living.length} lebende Linien · dominant S${dom.s+1}/L${dom.id}: ${Math.round(100*dom.count/N)}%`;
+}
+
 /* ---------- Schleife ---------- */
 let lastT=performance.now(), fpsAcc=0, fpsN=0;
 function loop(t){
-  const dt=t-lastT; lastT=t;
+  const dt=t-lastT;
+  lastT=t;
   if(searching){ requestAnimationFrame(loop); return; }   // während Suche pausiert die Live-Sim
   fpsAcc+=dt; fpsN++;
   if(fpsAcc>400){ document.getElementById('rFps').textContent=Math.round(1000/(fpsAcc/fpsN)); fpsAcc=0; fpsN=0; }
-  if(!paused) step();
-  render();
+  try { if(!paused) step(Math.min(0.08,Math.max(0.001,dt/1000))); render(); }
+  catch(err){ paused=true; showPreviewError(err&&err.stack?err.stack:String(err)); }
   requestAnimationFrame(loop);
 }
 
@@ -770,19 +1143,25 @@ function renderMatrix(){
 }
 
 /* ---------- Regler & Schalter (mit Registry für syncSliders) ---------- */
-const sliderReg=[];
+const sliderReg=[], toggleReg=[];
 function bindSlider(id,valId,key,fmt,onChange){
   const el=document.getElementById(id), out=document.getElementById(valId);
   el.value=cfg[key]; const upd=()=>{ out.textContent=fmt(cfg[key]); };
   el.addEventListener('input',()=>{ cfg[key]=parseFloat(el.value); upd(); if(onChange) onChange(cfg[key]); }); upd();
   sliderReg.push({el,out,key,fmt});
 }
-function syncSliders(){ for(const r of sliderReg){ r.el.value=cfg[r.key]; r.out.textContent=r.fmt(cfg[r.key]); } }
-function bindToggle(id,key){ const el=document.getElementById(id); el.checked=cfg[key]; el.addEventListener('change',()=>{ cfg[key]=el.checked; }); }
+function syncControls(){
+  for(const r of sliderReg){ r.el.value=cfg[r.key]; r.out.textContent=r.fmt(cfg[r.key]); }
+  for(const r of toggleReg){ r.el.checked=!!cfg[r.key]; }
+}
+function bindToggle(id,key){ const el=document.getElementById(id); el.checked=cfg[key]; el.addEventListener('change',()=>{ cfg[key]=el.checked; }); toggleReg.push({el,key}); }
 const f0=v=>String(Math.round(v)), f1=v=>v.toFixed(1), f2=v=>v.toFixed(2), f3=v=>v.toFixed(3);
 
 bindToggle('cBond','bonding'); bindToggle('cBondLines','bondLines'); bindToggle('cQuorum','quorum');
-bindToggle('cShock','shocks'); bindToggle('cSex','sexual');
+bindToggle('cShock','shocks'); bindToggle('cSex','sexual'); bindToggle('cNonlinear','nonlinear');
+bindToggle('cCombat','combat'); bindToggle('cPhylo','phylo'); bindToggle('cMetaOrg','metaOrgs');
+bindSlider('sCostCurve','vCostCurve','costCurve',f2);
+bindSlider('sBenefitSat','vBenefitSat','benefitSat',f1);
 bindSlider('sShockRate','vShockRate','shockRate',f1);
 bindSlider('sShockSeverity','vShockSeverity','shockSeverity',f1);
 bindSlider('sShockRadius','vShockRadius','shockRadius',f0);
@@ -791,6 +1170,15 @@ bindSlider('sSexRate','vSexRate','sexRate',f2);
 bindSlider('sMateTol','vMateTol','mateTol',f2);
 bindSlider('sRecomb','vRecomb','recombMix',f2);
 bindSlider('sSexCost','vSexCost','sexCost',f0);
+bindSlider('sCoop','vCoop','coopBenefit',f3);
+bindSlider('sPredation','vPredation','predation',f2);
+bindSlider('sMeatGain','vMeatGain','meatGain',f2);
+bindSlider('sPhyloFork','vPhyloFork','phyloFork',f2);
+bindSlider('sPhyloTop','vPhyloTop','phyloTop',f0);
+bindSlider('sMetaMinPop','vMetaMinPop','metaMinPop',f0);
+bindSlider('sMetaRange','vMetaRange','metaRange',f0);
+bindSlider('sMetaBenefit','vMetaBenefit','metaBenefit',f3);
+bindSlider('sMetaPull','vMetaPull','metaPull',f2);
 bindSlider('sTagTol','vTagTol','tagTol',f2);
 bindSlider('sSize','vSize','sizePenalty',f2);
 bindSlider('sBondCost','vBondCost','bondCost',f3);
@@ -820,6 +1208,25 @@ bindSlider('wCoh','vwCoh','wCoh',f1);
 bindSlider('wInt','vwInt','wInt',f1);
 bindSlider('sTrail','vTrail','trailLen',f2);
 
+
+const PRESETS={
+  final:{shocks:true,sexual:true,nonlinear:true,combat:true,phylo:true,metaOrgs:true,metaMinPop:80,metaRange:420,metaBenefit:0.065,metaPull:0.55,shockRate:2.0,shockSeverity:0.8,shockRadius:120,shockDuration:8,sexRate:0.35,mateTol:0.18,recombMix:0.65,sexCost:8,tagTol:0.12,sizePenalty:0.06,bondCost:0.004,costCurve:1.45,benefitSat:1.6,foodMax:950,foodRate:220,numAgents:650},
+  stage1:{shocks:false,sexual:false,nonlinear:false,combat:false,phylo:true,metaOrgs:false,metaMinPop:110,metaRange:360,metaBenefit:0.035,metaPull:0.25,shockRate:0,sexRate:0,tagTol:0.12,sizePenalty:0.06,bondCost:0.004,foodMax:1200,foodRate:260,numAgents:800},
+  shock:{shocks:true,sexual:true,nonlinear:true,combat:true,phylo:true,metaOrgs:true,metaMinPop:70,metaRange:460,metaBenefit:0.075,metaPull:0.65,shockRate:5.0,shockSeverity:1.15,shockRadius:150,shockDuration:10,sexRate:0.25,mateTol:0.22,recombMix:0.55,costCurve:1.6,benefitSat:1.7,foodMax:900,foodRate:210,numAgents:700},
+  recomb:{shocks:true,sexual:true,nonlinear:true,combat:true,phylo:true,metaOrgs:true,metaMinPop:65,metaRange:480,metaBenefit:0.080,metaPull:0.70,shockRate:0.8,shockSeverity:0.65,sexRate:0.75,mateTol:0.30,recombMix:0.85,sexCost:5,tagTol:0.16,costCurve:1.35,benefitSat:1.4,foodMax:1050,foodRate:250,numAgents:650},
+  linear:{shocks:true,sexual:true,nonlinear:false,combat:true,phylo:true,metaOrgs:true,metaMinPop:80,metaRange:420,metaBenefit:0.065,metaPull:0.55,shockRate:2.0,shockSeverity:0.8,sexRate:0.35,mateTol:0.18,recombMix:0.65,tagTol:0.12,sizePenalty:0.06,bondCost:0.004,foodMax:950,foodRate:220,numAgents:650}
+};
+function applyPreset(name){
+  const p=PRESETS[name]||PRESETS.final;
+  Object.assign(cfg,p);
+  setAgentCount(Math.round(cfg.numAgents));
+  syncControls();
+  resetWorld();
+  searchInfo.textContent='Preset geladen: '+document.getElementById('presetSel').selectedOptions[0].textContent.replace('Preset: ','');
+  searchRes.textContent='';
+}
+
+document.getElementById('bPreset').addEventListener('click',()=>applyPreset(document.getElementById('presetSel').value));
 document.getElementById('bRandom').addEventListener('click',randomizeMatrix);
 function resetWorld(){ spawnAgents(cfg.numAgents); resetFood(); resetRunStats(); popHist=[];divHist=[];cxHist=[]; }
 document.getElementById('bReset').addEventListener('click',resetWorld);
@@ -839,7 +1246,7 @@ const searchInfo=document.getElementById('searchInfo'), searchRes=document.getEl
 function objLabel(o){ return o==='complexity'?'Komplexität':o==='diversity'?'Diversität':'Stabilität'; }
 function setSearchUI(on){
   searching=on;
-  for(const id of ['bGrid','bRefine','bRandom','bReset','bPause','bShock']) document.getElementById(id).disabled=on;
+  for(const id of ['bGrid','bRefine','bPreset','bRandom','bReset','bPause','bShock']) document.getElementById(id).disabled=on;
 }
 
 // Bewertet eine Parameter-Kombination headless (ohne Rendern)
@@ -885,7 +1292,7 @@ async function gridSearch(){
   finally {
     W=saveW; H=saveH; Object.assign(cfg,snap);
     if(best) Object.assign(cfg,best);
-    syncSliders(); resetWorld();
+    syncControls(); resetWorld();
     setSearchUI(false);
   }
 }
@@ -915,7 +1322,7 @@ async function refine(){
   } catch(err){ searchInfo.textContent='Verfeinern abgebrochen.'; }
   finally {
     W=saveW; H=saveH; Object.assign(cfg,snap); Object.assign(cfg,cur);
-    syncSliders(); resetWorld();
+    syncControls(); resetWorld();
     setSearchUI(false);
   }
 }
@@ -926,7 +1333,7 @@ document.getElementById('bRefine').addEventListener('click',refine);
 /* ---------- Start ---------- */
 resize();
 matrix=defaultMatrix(cfg.numSpecies);
-resetWorld(); renderMatrix();
+resetWorld(); renderMatrix(); render();
 
 setInterval(()=>{
   if(searching) return;
@@ -935,8 +1342,15 @@ setInterval(()=>{
   document.getElementById('rShock').textContent=shocks.length?shocks.map(s=>SHOCK_LABEL[s.type]).join('+'):'–';
   const births=sexualBirths+cloneBirths;
   document.getElementById('rSex').textContent=births?Math.round(100*sexualBirths/births):0;
+  document.getElementById('rKills').textContent=combatKills;
+  document.getElementById('rMeat').textContent=Math.round(combatEnergy);
+  document.getElementById('rLines').textContent=new Set(agents.map(a=>a.lin)).size;
+  document.getElementById('rMetaBodies').textContent=metaStats.bodies;
+  document.getElementById('rMetaLinks').textContent=metaStats.links;
+  document.getElementById('rMetaPower').textContent=metaStats.power.toFixed(2);
+  renderPhylogeny();
   if(agents.length){
-    let gn=0, mrSum=0; for(const a of agents){ gn+=a.gen; mrSum+=a.mr; }
+    let gn=0, mrSum=0, hardSum=0; for(const a of agents){ gn+=a.gen; mrSum+=a.mr; hardSum+=a.hard||0; }
     const m=computeMetrics();
     document.getElementById('rDiv').textContent=m.div.toFixed(2);
     document.getElementById('rCx').textContent=m.cx.toFixed(2);
@@ -945,6 +1359,7 @@ setInterval(()=>{
     document.getElementById('rMix').textContent=Math.round(m.mixed*100);
     document.getElementById('rGen').textContent=(gn/agents.length).toFixed(0);
     document.getElementById('rMut').textContent=(mrSum/agents.length).toFixed(2);
+    document.getElementById('rHard').textContent=(hardSum/agents.length).toFixed(2);
     if(!paused){ pushSeries(popHist,agents.length,180); pushSeries(divHist,m.div,180); pushSeries(cxHist,m.cx,180); drawGraphs(); }
   }
 },400);
